@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Impressum – openchest</title>
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<style>
+  :root {
+    --bg: #f8f6f1;
+    --ink: #0e1b2a;
+    --muted: #6b7280;
+    --line: #d9d4c8;
+    --gold: #d9a441;
+    --card: #ffffff;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0e1b2a;
+      --ink: #f2ede4;
+      --muted: #8a94a3;
+      --line: #24344a;
+      --card: #14243a;
+    }
+  }
+  * { box-sizing: border-box; margin: 0; }
+  body {
+    font-family: 'Segoe UI', 'Helvetica Neue', Arial, sans-serif;
+    background: var(--bg);
+    color: var(--ink);
+    min-height: 100vh;
+    display: grid;
+    place-items: center;
+    padding: 1.5rem;
+  }
+  main {
+    width: 100%;
+    max-width: 34rem;
+  }
+  h1 {
+    font-size: 1.6rem;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    margin-bottom: 1.5rem;
+    text-align: center;
+  }
+  section {
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    padding: 1.5rem;
+    margin-bottom: 1rem;
+  }
+  h2 {
+    font-size: 1.05rem;
+    font-weight: 600;
+    margin-bottom: 0.75rem;
+  }
+  p {
+    font-size: 0.9rem;
+    line-height: 1.55;
+    margin-bottom: 0.6rem;
+  }
+  p:last-child { margin-bottom: 0; }
+  a { color: var(--gold); }
+  .back {
+    display: block;
+    text-align: center;
+    font-size: 0.85rem;
+    margin-top: 1.5rem;
+  }
+</style>
+</head>
+<body>
+<main>
+  <h1>Impressum</h1>
+  <section>
+    <h2>Offenlegung gemäß § 25 Mediengesetz</h2>
+    <p>Alexis Slama<br>Wien, Österreich</p>
+    <p>Private, nicht-kommerzielle Website.</p>
+  </section>
+  <section>
+    <h2>Datenschutz</h2>
+    <p>Diese Website wird über GitHub Pages gehostet, einen Dienst der GitHub, Inc. (USA). Beim Aufruf der Seite verarbeitet GitHub technisch bedingt Verbindungsdaten wie die IP-Adresse in Server-Logs. Details dazu finden sich in der <a href="https://docs.github.com/de/site-policy/privacy-policies/github-general-privacy-statement" rel="noopener">Datenschutzerklärung von GitHub</a>.</p>
+    <p>GitHub ist unter dem EU-US Data Privacy Framework zertifiziert; die Datenübermittlung in die USA erfolgt auf dieser Grundlage.</p>
+    <p>Diese Website selbst setzt keine Cookies, bindet keine externen Dienste ein und erhebt keine personenbezogenen Daten. Das Login-Formular ist ein Platzhalter ohne Funktion und übermittelt keine Daten.</p>
+  </section>
+  <a class="back" href="index.html">← Zurück</a>
+</main>
+</body>
+</html>
