@@ -1,0 +1,957 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Lego-Inventur</title>
+<style>
+  :root { --ok:#d9efd9; --part:#fdf3d5; --line:#ddd; --muted:#666; }
+  * { box-sizing:border-box; margin:0; }
+  body { font-family:system-ui,sans-serif; font-size:14px; color:#1b1b1b; background:#f5f4f1;
+         padding-left:172px; }
+  header { position:sticky; top:0; background:#fff; border-bottom:1px solid var(--line);
+           padding:.6rem 1rem; z-index:5; }
+  h1 { font-size:1.05rem; display:inline; margin-right:1rem; }
+  #side { position:fixed; top:0; left:0; bottom:0; width:172px; overflow-y:auto;
+          background:#fff; border-right:1px solid var(--line); padding:.6rem .55rem 1rem;
+          z-index:6; }
+  #side #orderBtn { font-size:.75rem; color:var(--muted); padding:.25rem; margin-bottom:0; }
+  #side .glabel { display:block; font-size:.75rem; color:var(--muted);
+                  margin:.7rem 0 .3rem; font-weight:600; }
+  #side button { display:block; width:100%; border:1px solid var(--line); background:#fff;
+                 border-radius:8px; padding:.35rem .35rem .3rem; cursor:pointer;
+                 margin-bottom:.45rem; font-size:.85rem; text-align:center; }
+  #side button:hover { border-color:#bbb; }
+  #side button.active { outline:2px solid #1b1b1b; outline-offset:-1px; }
+  #side button img { width:100%; aspect-ratio:10 / 7; object-fit:cover;
+                     border-radius:5px; display:block; margin-bottom:.25rem; }
+  #side button .pct { color:var(--muted); font-size:.75rem; margin-left:.3rem; }
+  .controls { margin-top:.5rem; display:flex; flex-wrap:wrap; gap:.5rem; align-items:center; }
+  .controls input[type=search] { padding:.35rem .5rem; border:1px solid var(--line);
+                                 border-radius:6px; width:220px; }
+  .controls select { padding:.35rem; border:1px solid var(--line); border-radius:6px; }
+  .controls label { font-size:.85rem; color:var(--muted); }
+  .controls .right { margin-left:auto; display:flex; gap:.4rem; }
+  .controls .right button { border:1px solid var(--line); background:#fff; border-radius:6px;
+                            padding:.35rem .6rem; cursor:pointer; font-size:.82rem; }
+  #autosave.on { background:#d9efd9; border-color:#8fbf8f; }
+  #autosave.warn { background:#fdf3d5; border-color:#d9c27a; }
+  #bar { height:5px; background:#e6e4df; margin-top:.5rem; border-radius:3px; overflow:hidden; }
+  #bar div { height:100%; background:#4a9e4a; width:0; transition:width .2s; }
+  main { max-width:1200px; margin:0 auto; padding:1rem; }
+  h2 { font-size:.95rem; margin:1.1rem 0 .4rem; }
+  h2 .n { color:var(--muted); font-weight:400; font-size:.8rem; }
+  table { border-collapse:collapse; width:100%; background:#fff; }
+  th,td { border:1px solid var(--line); padding:.3rem .5rem; text-align:left; }
+  th { background:#eee; font-size:.8rem; position:sticky; top:var(--headh, 0px); z-index:2; }
+  tr.ghead td { position:sticky; top:calc(var(--headh, 0px) + 29px); z-index:1;
+                background:#f0efec; font-weight:600; }
+  #colorbar { margin-top:.45rem; }
+  .chip { display:inline-block; width:18px; height:18px; border-radius:50%;
+          border:1px solid #0004; margin:0 .25rem .2rem 0; cursor:pointer;
+          vertical-align:middle; }
+  .chip.on { outline:2px solid #3577d4; outline-offset:1px; }
+  #clearCol { border:1px solid var(--line); background:#fff; border-radius:5px;
+              padding:.1rem .45rem; cursor:pointer; font-size:.78rem; margin-left:.3rem; }
+  #bkmodal { position:fixed; inset:0; background:rgba(0,0,0,.6); display:none;
+             align-items:center; justify-content:center; z-index:30; }
+  #bkmodal.open { display:flex; }
+  #bkmodal .panel { background:#fff; border-radius:12px; max-width:440px;
+                    padding:1.3rem 1.5rem; }
+  #bkmodal h3 { margin-bottom:.6rem; }
+  #bkmodal p { font-size:.9rem; color:#444; margin-bottom:1rem; }
+  #bkmodal button { border:1px solid var(--line); border-radius:6px; padding:.45rem .8rem;
+                    cursor:pointer; margin-right:.5rem; }
+  #bkmodal #bkconnect { background:#1b1b1b; color:#fff; border-color:#1b1b1b; }
+  body.dark { --ok:#22391f; --part:#413916; --line:#3a3a3a; --muted:#9a9a9a;
+              background:#191919; color:#ddd; }
+  body.dark header, body.dark #side, body.dark #stats, body.dark table,
+  body.dark #zoom, body.dark #bkmodal .panel { background:#232323; }
+  body.dark th { background:#2d2d2d; }
+  body.dark tr.ghead td { background:#2a2a2a; }
+  body.dark tr.over { background:#46301a; }
+  body.dark #side button, body.dark .controls .right button, body.dark td.act button,
+  body.dark .controls input, body.dark .controls select, body.dark td.ist input,
+  body.dark #clearCol { background:#2b2b2b; color:#ddd; border-color:#444; }
+  body.dark #side button.active { outline-color:#ddd; }
+  body.dark #legend b { background:#2d2d2d; border-color:#444; color:#ccc; }
+  body.dark #bar { background:#333; }
+  body.dark #bkmodal p { color:#bbb; }
+  body.dark #autosave.on { background:#22391f; }
+  body.dark #autosave.warn { background:#413916; }
+  tr.row { cursor:pointer; }
+  tr.done { background:var(--ok); }
+  tr.part { background:var(--part); }
+  tr.spare td { color:#999; }
+  tr.over { background:#ffe3c8; }
+  tr.active { outline:2px solid #3577d4; outline-offset:-2px; }
+  @keyframes flashdone { 0% { background:#7ecb7e; } 100% { background:var(--ok); } }
+  tr.flash { animation: flashdone .7s; }
+  .xref { color:#a5601c; font-size:.75rem; }
+  td.ist { cursor:text; }
+  td.ist input { width:3.2em; font:inherit; text-align:center; border:1px solid #999; border-radius:4px; }
+  td.act button.def { color:#b33; border-color:#e8caca; }
+  td.act button.def.on { background:#f7dede; font-weight:600; }
+  #legend { margin-top:.4rem; font-size:.75rem; color:var(--muted); }
+  #legend b { font-weight:600; color:#444; background:#eee; border:1px solid #ddd;
+              border-radius:4px; padding:0 .3em; }
+  td.img { width:calc(var(--imgh, 34px) * 1.7 + 14px); text-align:center; }
+  td.img img { height:var(--imgh, 34px); width:calc(var(--imgh, 34px) * 1.7); object-fit:contain;
+               display:block; margin:0 auto; }
+  tr.row { content-visibility:auto; contain-intrinsic-size:auto calc(var(--imgh, 34px) + 14px); }
+  #zoom { position:fixed; display:none; z-index:20; background:#fff; border:1px solid #999;
+          border-radius:8px; padding:6px; box-shadow:0 4px 16px #0003; pointer-events:none; }
+  #zoom img { max-height:260px; max-width:300px; display:block; }
+  td.name small { color:var(--muted); }
+  td.col { white-space:nowrap; }
+  .sw { display:inline-block; width:12px; height:12px; border-radius:3px;
+        border:1px solid #0003; vertical-align:-1px; margin-right:.35rem; }
+  td.qty,td.ist { text-align:center; width:3.2em; font-variant-numeric:tabular-nums; }
+  td.act { white-space:nowrap; width:9.5em; }
+  td.act button { border:1px solid var(--line); background:#fafafa; border-radius:5px;
+                  padding:.15rem .5rem; cursor:pointer; margin-right:.25rem; }
+  td.act button.all { font-weight:600; }
+  #stats { position:sticky; bottom:0; background:#fff; border-top:1px solid var(--line);
+           padding:.5rem 1rem; font-size:.85rem; display:flex; gap:1.5rem; }
+  #stats .miss { color:#b33; font-weight:600; }
+  /* Sortiermodus (Teil zuerst, setübergreifend) */
+  #side button.sorttab { font-weight:600; margin-bottom:.2rem; }
+  #sortctl { display:none; margin-top:.45rem; font-size:.85rem; color:var(--muted); }
+  #sortctl .batch { margin-top:.35rem; }
+  #sortctl .batch label { margin-right:.6rem; white-space:nowrap; cursor:pointer; }
+  #sortctl .batch button, #sortctl #restAdd, .restbtn { border:1px solid var(--line); background:#fff;
+    border-radius:5px; padding:.1rem .45rem; cursor:pointer; font-size:.78rem; }
+  #sortctl select, #sortctl input[type=text] { padding:.3rem .45rem; border:1px solid var(--line);
+    border-radius:6px; font:inherit; }
+  #sortctl #restTxt { width:320px; }
+  body.sortmode #sortctl { display:block; }
+  body.sortmode #legend .setl { display:none; }
+  #legend .sortl { display:none; }
+  body.sortmode #legend .sortl { display:inline; }
+  td.sets { white-space:nowrap; }
+  td.sets button { border:1px solid var(--line); background:#fafafa; border-radius:5px;
+    padding:.15rem .5rem; cursor:pointer; margin-right:.3rem; font-variant-numeric:tabular-nums; }
+  td.sets button.part { background:var(--part); }
+  td.sets button.done { background:var(--ok); }
+  td.sets button.over { background:#ffe3c8; }
+  td.sets button.rec { outline:2px solid #3577d4; outline-offset:-1px; font-weight:600; }
+  td.sets button .idx { color:var(--muted); font-size:.7rem; margin-right:.2rem; }
+  tr.srow.done td { color:#888; }
+  .hint { padding:.8rem; color:var(--muted); }
+  body.dark td.sets button, body.dark #sortctl .batch button, body.dark #sortctl #restAdd,
+  body.dark .restbtn, body.dark #sortctl select, body.dark #sortctl input[type=text]
+    { background:#2b2b2b; color:#ddd; border-color:#444; }
+  body.dark td.sets button.part { background:var(--part); }
+  body.dark td.sets button.done { background:var(--ok); }
+  body.dark td.sets button.over { background:#46301a; }
+</style>
+</head>
+<body>
+<aside id="side">
+  <button id="orderBtn" title="Reihenfolge der Sets umschalten"></button>
+  <div id="tabs"></div>
+</aside>
+<header>
+  <h1>Inventur</h1>
+  <div class="controls">
+    <input type="search" id="q" placeholder="Suche: Name, Teil-Nr, Farbe …">
+    <select id="sort">
+      <option value="cat">Sortierung: Sonderteile zuerst</option>
+      <option value="color">nach Farbe</option>
+      <option value="size">nach Größe (Noppen)</option>
+      <option value="qty">nach Stückzahl (viel zuerst)</option>
+      <option value="konv">nach Konvolut-Rest (viel zuerst)</option>
+      <option value="open">Offene zuerst</option>
+    </select>
+    <select id="sort2">
+      <option value="">dann: –</option>
+      <option value="color">dann nach Farbe</option>
+      <option value="size">dann nach Größe</option>
+      <option value="qty">dann nach Stückzahl</option>
+      <option value="konv">dann nach Konvolut-Rest</option>
+      <option value="name">dann nach Name</option>
+    </select>
+    <label id="hideLbl"><input type="checkbox" id="hideDone"> Fertige ausblenden</label>
+    <label>Bildgröße <input type="range" id="imgSize" min="20" max="90" value="34"></label>
+    <span class="right">
+      <button id="darkBtn" title="Hell/Dunkel umschalten">🌓</button>
+      <button id="autosave" title="Fortschritt automatisch in JSON-Datei im Lego-Ordner schreiben">Auto-Backup aus</button>
+      <button id="undoBtn" title="Strg+Z">↶ Rückgängig</button>
+      <button id="expMiss">Fehlteile-CSV</button>
+      <button id="expOver">Überschuss-CSV</button>
+      <button id="expRest">Fremdbestand-CSV</button>
+      <button id="expXml">BrickLink-XML</button>
+      <button id="expState">Fortschritt sichern</button>
+      <button id="impState">Fortschritt laden</button>
+      <input type="file" id="impFile" accept=".json" hidden>
+    </span>
+  </div>
+  <div id="legend"><span class="setl"><b>Klick Zeile</b> / <b>+</b> / <b>⏎</b> +1 st · <b>−</b> −1 ·
+    <b>A</b> alle da · <b>E</b> / <b>Klick auf Ist</b> Menge eintippen ·
+    <b>D</b> / <b>⚠</b> defekt zählen · <b>↑</b><b>↓</b> Zeile wählen · <b>Strg+Z</b> rückgängig</span>
+    <span class="sortl"><b>Klick Set</b> +1 dort · <b>+</b> / <b>⏎</b> +1 ins empfohlene Set (blau) ·
+    <b>1</b>–<b>9</b> +1 ins n-te Set · <b>−</b> −1 (zuletzt gebucht) ·
+    <b>↑</b><b>↓</b> Zeile wählen · <b>Strg+Z</b> rückgängig</span></div>
+  <div id="sortctl">
+    <label>Noppen <select id="studsSel">
+      <option value="">alle</option><option value="1-1">1</option><option value="2-2">2</option>
+      <option value="3-4">3–4</option><option value="5-8">5–8</option><option value="9-16">9–16</option>
+      <option value="17-9999">über 16</option><option value="0-0">ohne Angabe</option></select></label>
+    <label style="margin-left:.8rem"><input type="checkbox" id="noYellow"> Weiß/Hellgrau ausblenden (vergilbt, später)</label>
+    <div class="batch"><span>Auf dem Tisch:</span> <span id="batch"></span>
+      <button id="batchAll">alle</button> <button id="batchNone">keine</button></div>
+    <div style="margin-top:.4rem">Gehört zu keinem Set:
+      <input type="text" id="restTxt" placeholder="z. B. 3001 Rot Brick 2 x 4">
+      <button id="restAdd">+1 Fremdbestand</button></div>
+  </div>
+  <div id="colorbar"></div>
+  <div id="bar"><div></div></div>
+</header>
+<main id="main"></main>
+<div id="zoom"><img alt=""></div>
+<div id="stats"></div>
+<div id="bkmodal">
+  <div class="panel">
+    <h3>Kein Auto-Backup verbunden</h3>
+    <p>Damit kein Fortschritt verloren geht: Verbinde jetzt die Backup-Datei
+       (<code>inventur-fortschritt.json</code> im Lego-Ordner — pCloud sichert sie mit).
+       Der Browser verlangt diese Bestätigung einmal pro Sitzung.</p>
+    <button id="bkconnect">Backup-Datei verbinden</button>
+    <button id="bklater">Ohne Backup fortfahren</button>
+  </div>
+</div>
+
+<script>
+const DATA = [{"nr":"6286","name":"Skull's Eye Schooner","grp":"konvolut","year":1993,"parts":[{"p":"3957a","n":"Antenna 1 x 4 with Rounded Top","c":"Black","rgb":"05131D","cat":"Bars, Ladders and Fences","q":1,"sp":false,"img":"0_3957a.png","blc":11},{"p":"4735","n":"Bar 1 x 3 [Clip / Anti-Stud]","c":"Black","rgb":"05131D","cat":"Bars, Ladders and Fences","q":2,"sp":false,"img":"elements_4141580.jpg","blc":11},{"p":"4083","n":"Bar 1 x 4 x 2 with Studs","c":"Black","rgb":"05131D","cat":"Bars, Ladders and Fences","q":1,"sp":false,"img":"elements_408326.jpg","blc":11},{"p":"2564","n":"Boat, Anchor - Single Top Hole","c":"Black","rgb":"05131D","cat":"Transportation - Sea and Air","q":1,"sp":false,"img":"elements_4189101.jpg","blc":11},{"p":"4844","n":"Boat, Mast Section Base 4 x 4 x 9","c":"Black","rgb":"05131D","cat":"Transportation - Sea and Air","q":2,"sp":false,"img":"0_4844b.png","blc":11},{"p":"6067","n":"Boat, Mast Section Base, Plate 4 x 4 x 1 2/3","c":"Black","rgb":"05131D","cat":"Transportation - Sea and Air","q":1,"sp":false,"img":"0_6067.png","blc":11},{"p":"2537a","n":"Boat, Mast Section Middle 13 2/3 H, without Bottom Connector Prong","c":"Black","rgb":"05131D","cat":"Transportation - Sea and Air","q":2,"sp":false,"img":"0_2537.png","blc":11},{"p":"2538b","n":"Boat, Mast Section Top 16 H with 4 stud holes at bottom, With Bottom Nubs","c":"Black","rgb":"05131D","cat":"Transportation - Sea and Air","q":4,"sp":false,"img":"0_2538d.png","blc":11},{"p":"4346","n":"Box 2 x 2 x 2 Door with Slot","c":"Black","rgb":"05131D","cat":"Containers","q":1,"sp":false,"img":"elements_6191994.jpg","blc":11},{"p":"3005","n":"Brick 1 x 1","c":"Black","rgb":"05131D","cat":"Bricks","q":22,"sp":false,"img":"elements_300526.jpg","blc":11},{"p":"2465","n":"Brick 1 x 16","c":"Black","rgb":"05131D","cat":"Bricks","q":1,"sp":false,"img":"elements_246526.jpg","blc":11},{"p":"3004","n":"Brick 1 x 2","c":"Black","rgb":"05131D","cat":"Bricks","q":28,"sp":false,"img":"elements_300426.jpg","blc":11},{"p":"3622","n":"Brick 1 x 3","c":"Black","rgb":"05131D","cat":"Bricks","q":8,"sp":false,"img":"elements_362226.jpg","blc":11},{"p":"3010","n":"Brick 1 x 4","c":"Black","rgb":"05131D","cat":"Bricks","q":3,"sp":false,"img":"elements_301026.jpg","blc":11},{"p":"3009","n":"Brick 1 x 6","c":"Black","rgb":"05131D","cat":"Bricks","q":1,"sp":false,"img":"elements_300926.jpg","blc":11},{"p":"3008","n":"Brick 1 x 8","c":"Black","rgb":"05131D","cat":"Bricks","q":2,"sp":false,"img":"elements_300826.jpg","blc":11},{"p":"3003","n":"Brick 2 x 2","c":"Black","rgb":"05131D","cat":"Bricks","q":14,"sp":false,"img":"elements_300326.jpg","blc":11},{"p":"2357","n":"Brick 2 x 2 Corner","c":"Black","rgb":"05131D","cat":"Bricks","q":12,"sp":false,"img":"elements_235726.jpg","blc":11},{"p":"3002","n":"Brick 2 x 3","c":"Black","rgb":"05131D","cat":"Bricks","q":4,"sp":false,"img":"elements_300226.jpg","blc":11},{"p":"3001","n":"Brick 2 x 4","c":"Black","rgb":"05131D","cat":"Bricks","q":9,"sp":false,"img":"elements_300126.jpg","blc":11},{"p":"4490","n":"Brick Arch 1 x 3","c":"Black","rgb":"05131D","cat":"Bricks Curved","q":4,"sp":false,"img":"elements_4160814.jpg","blc":11},{"p":"3659","n":"Brick Arch 1 x 4","c":"Black","rgb":"05131D","cat":"Bricks Curved","q":13,"sp":false,"img":"elements_365926.jpg","blc":11},{"p":"2339","n":"Brick Arch 1 x 5 x 4 [Continuous Bow]","c":"Black","rgb":"05131D","cat":"Bricks Curved","q":4,"sp":false,"img":"elements_4159140.jpg","blc":11},{"p":"6091","n":"Brick Curved 1 x 2 x 1 1/3 with Curved Top","c":"Black","rgb":"05131D","cat":"Bricks Curved","q":4,"sp":false,"img":"elements_609126.jpg","blc":11},{"p":"3062b","n":"Brick Round 1 x 1 Open Stud","c":"Black","rgb":"05131D","cat":"Bricks Round and Cones","q":4,"sp":false,"img":"elements_306226.jpg","blc":11,"bl":"3062"},{"p":"4286","n":"Brick Sloped 33° 3 x 1","c":"Black","rgb":"05131D","cat":"Bricks Sloped","q":8,"sp":false,"img":"elements_428626.jpg","blc":11},{"p":"3040b","n":"Brick Sloped 45° 2 x 1 with Bottom Pin","c":"Black","rgb":"05131D","cat":"Bricks Sloped","q":10,"sp":false,"img":"elements_4121966.jpg","blc":11,"bl":"3040"},{"p":"3039","n":"Brick Sloped 45° 2 x 2","c":"Black","rgb":"05131D","cat":"Bricks Sloped","q":6,"sp":false,"img":"elements_303926.jpg","blc":11},{"p":"3043","n":"Brick Sloped 45° 2 x 2 Double","c":"Black","rgb":"05131D","cat":"Bricks Sloped","q":1,"sp":false,"img":"elements_304326.jpg","blc":11},{"p":"3038","n":"Brick Sloped 45° 2 x 3","c":"Black","rgb":"05131D","cat":"Bricks Sloped","q":2,"sp":false,"img":"elements_303826.jpg","blc":11},{"p":"3037","n":"Brick Sloped 45° 2 x 4","c":"Black","rgb":"05131D","cat":"Bricks Sloped","q":1,"sp":false,"img":"elements_303726.jpg","blc":11},{"p":"4445","n":"Brick Sloped 45° 2 x 8","c":"Black","rgb":"05131D","cat":"Bricks Sloped","q":2,"sp":false,"img":"elements_4163334.jpg","blc":11},{"p":"3684","n":"Brick Sloped 75° 2 x 2 x 3 [Hollow Studs]","c":"Black","rgb":"05131D","cat":"Bricks Sloped","q":2,"sp":false,"img":"elements_4143982.jpg","blc":11,"bl":"3684a"},{"p":"3747a","n":"Brick Sloped Inverted 33° 3 x 2, No Connections between Studs, Ovoid Bottom Pin","c":"Black","rgb":"05131D","cat":"Bricks Sloped","q":3,"sp":false,"img":"0_3747a.png","blc":11},{"p":"4287a","n":"Brick Sloped Inverted 34° 3 x 1 without Internal Stopper","c":"Black","rgb":"05131D","cat":"Bricks Sloped","q":2,"sp":false,"img":"0_4287a.png","blc":11,"bl":"4287"},{"p":"3665","n":"Brick Sloped Inverted 45° 2 x 1","c":"Black","rgb":"05131D","cat":"Bricks Sloped","q":16,"sp":false,"img":"elements_366526.jpg","blc":11},{"p":"3660","n":"Brick Sloped Inverted 45° 2 x 2 [Ovoid Bottom Pin, Bar-sized Stud Holes]","c":"Black","rgb":"05131D","cat":"Bricks Sloped","q":2,"sp":false,"img":"elements_366026.jpg","blc":11},{"p":"4854","n":"Brick Sloped Inverted 45° 4 x 4 Double with 4 x 2 Recessed","c":"Black","rgb":"05131D","cat":"Bricks Sloped","q":1,"sp":false,"img":"elements_4603490.jpg","blc":11},{"p":"4589","n":"Cone 1 x 1 [No Top Groove]","c":"Black","rgb":"05131D","cat":"Bricks Round and Cones","q":1,"sp":false,"img":"elements_458926.jpg","blc":11},{"p":"70001pr0002","n":"Equipment Compass with Fleur de Lis Print","c":"Black","rgb":"05131D","cat":"Minifig Accessories","q":1,"sp":false,"img":"0_74948p01.png","blc":11,"bl":"70001c01pb02"},{"p":"73590c01a","n":"Flexible Hose 8.5L with Tabless Ends (Ends same color as Tube)","c":"Black","rgb":"05131D","cat":"Tubes and Hoses","q":5,"sp":false,"img":"0_73590a.png","blc":11},{"p":"2528pr0013","n":"Hat Pirate Bicorne with Skull and Crossbones Print","c":"Black","rgb":"05131D","cat":"Minifig Headwear","q":1,"sp":false,"img":"0_2528ap31.png","blc":11,"bl":"2528pb01"},{"p":"3831","n":"Hinge Brick 1 x 4 [Lower]","c":"Black","rgb":"05131D","cat":"Hinges, Arms and Turntables","q":4,"sp":false,"img":"elements_383126.jpg","blc":11},{"p":"3830","n":"Hinge Brick 1 x 4 [Upper]","c":"Black","rgb":"05131D","cat":"Hinges, Arms and Turntables","q":4,"sp":false,"img":"elements_383026.jpg","blc":11},{"p":"4276b","n":"Hinge Plate 1 x 2 with 2 Fingers and Hollow Studs","c":"Black","rgb":"05131D","cat":"Hinges, Arms and Turntables","q":3,"sp":false,"img":"elements_4256402.jpg","blc":11},{"p":"2452","n":"Hinge Plate 1 x 2 with 3 Fingers On Side","c":"Black","rgb":"05131D","cat":"Hinges, Arms and Turntables","q":3,"sp":false,"img":"0_2452.png","blc":11},{"p":"4504","n":"Hinge Plate 1 x 6 with 2 and 3 Fingers On Ends","c":"Black","rgb":"05131D","cat":"Hinges, Arms and Turntables","q":3,"sp":false,"img":"0_4504.png","blc":11},{"p":"3626b","n":"Minifig Head [Plain] [Blocked Open Stud]","c":"Black","rgb":"05131D","cat":"Minifig Heads","q":1,"sp":false,"img":"0_3626b.png","blc":11,"bl":"3626"},{"p":"4865a","n":"Panel 1 x 2 x 1 [Square Corners]","c":"Black","rgb":"05131D","cat":"Panels","q":16,"sp":false,"img":"elements_486526.jpg","blc":11,"bl":"4865"},{"p":"4864a","n":"Panel 1 x 2 x 2 [Solid Studs]","c":"Black","rgb":"05131D","cat":"Panels","q":2,"sp":false,"img":"elements_4113021.jpg","blc":11},{"p":"3024","n":"Plate 1 x 1","c":"Black","rgb":"05131D","cat":"Plates","q":7,"sp":false,"img":"elements_302426.jpg","blc":11},{"p":"4477","n":"Plate 1 x 10","c":"Black","rgb":"05131D","cat":"Plates","q":25,"sp":false,"img":"elements_447726.jpg","blc":11},{"p":"3023","n":"Plate 1 x 2","c":"Black","rgb":"05131D","cat":"Plates","q":4,"sp":false,"img":"elements_302326.jpg","blc":11},{"p":"3623","n":"Plate 1 x 3","c":"Black","rgb":"05131D","cat":"Plates","q":14,"sp":false,"img":"elements_362326.jpg","blc":11},{"p":"3710","n":"Plate 1 x 4","c":"Black","rgb":"05131D","cat":"Plates","q":10,"sp":false,"img":"elements_371026.jpg","blc":11},{"p":"3666","n":"Plate 1 x 6","c":"Black","rgb":"05131D","cat":"Plates","q":6,"sp":false,"img":"elements_366626.jpg","blc":11},{"p":"3460","n":"Plate 1 x 8","c":"Black","rgb":"05131D","cat":"Plates","q":22,"sp":false,"img":"elements_346026.jpg","blc":11},{"p":"3832","n":"Plate 2 x 10","c":"Black","rgb":"05131D","cat":"Plates","q":1,"sp":false,"img":"elements_383226.jpg","blc":11},{"p":"3022","n":"Plate 2 x 2","c":"Black","rgb":"05131D","cat":"Plates","q":2,"sp":false,"img":"elements_302226.jpg","blc":11},{"p":"2420","n":"Plate 2 x 2 Corner","c":"Black","rgb":"05131D","cat":"Plates","q":6,"sp":false,"img":"elements_242026.jpg","blc":11},{"p":"3021","n":"Plate 2 x 3","c":"Black","rgb":"05131D","cat":"Plates","q":8,"sp":false,"img":"elements_302126.jpg","blc":11},{"p":"3020","n":"Plate 2 x 4","c":"Black","rgb":"05131D","cat":"Plates","q":2,"sp":false,"img":"elements_302026.jpg","blc":11},{"p":"3795","n":"Plate 2 x 6","c":"Black","rgb":"05131D","cat":"Plates","q":4,"sp":false,"img":"elements_379526.jpg","blc":11},{"p":"3034","n":"Plate 2 x 8","c":"Black","rgb":"05131D","cat":"Plates","q":1,"sp":false,"img":"elements_303426.jpg","blc":11},{"p":"6019","n":"Plate Special 1 x 1 with Clip Horizontal [Thick U Clip]","c":"Black","rgb":"05131D","cat":"Plates Special","q":9,"sp":false,"img":"elements_601926.jpg","blc":11},{"p":"4081b","n":"Plate Special 1 x 1 with Clip Light, Bar Hole [Thick Ring]","c":"Black","rgb":"05131D","cat":"Plates Special","q":4,"sp":false,"img":"elements_408126.jpg","blc":11},{"p":"4085c","n":"Plate Special 1 x 1 with Clip Vertical [Thick U Clip]","c":"Black","rgb":"05131D","cat":"Plates Special","q":10,"sp":false,"img":"elements_408526.jpg","blc":11},{"p":"2540","n":"Plate Special 1 x 2 Side Handle [Free Ends]","c":"Black","rgb":"05131D","cat":"Plates Special","q":9,"sp":false,"img":"elements_254026.jpg","blc":11},{"p":"3794a","n":"Plate Special 1 x 2 with 1 Stud without Groove (Jumper)","c":"Black","rgb":"05131D","cat":"Plates Special","q":6,"sp":false,"img":"0_3794a.png","blc":11},{"p":"4623","n":"Plate Special 1 x 2 with Bar Up [Horizontal Arm 6mm]","c":"Black","rgb":"05131D","cat":"Plates Special","q":12,"sp":false,"img":"elements_4597267.jpg","blc":11,"bl":"4623a"},{"p":"4590","n":"Plate Special 1 x 4 Offset with Bar Holes","c":"Black","rgb":"05131D","cat":"Plates Special","q":1,"sp":false,"img":"elements_459026.jpg","blc":11},{"p":"3184","n":"Plate Special 1 x 4 with Towball","c":"Black","rgb":"05131D","cat":"Plates Special","q":14,"sp":false,"img":"elements_318426.jpg","blc":11},{"p":"2479","n":"Propeller 4 Blade 5 Diameter with Rounded Ends, Open Hub","c":"Black","rgb":"05131D","cat":"Transportation - Sea and Air","q":1,"sp":false,"img":"elements_247926.jpg","blc":11},{"p":"14728c125","n":"String Cord Medium Thickness 125cm","c":"Black","rgb":"05131D","cat":"String, Bands and Reels","q":1,"sp":false,"img":"0_14728c125-0-c005e85b-429a-453e-89e7-6beff58fca55.jpg","blc":11,"bl":"x77cc125"},{"p":"56823c50","n":"String Cord Thin (0.5mm) 50cm","c":"Black","rgb":"05131D","cat":"String, Bands and Reels","q":2,"sp":false,"img":"elements_4297719.jpg","blc":11,"bl":"x77ac50"},{"p":"3700","n":"Technic Brick 1 x 2 [1 Pin Hole]","c":"Black","rgb":"05131D","cat":"Technic Bricks","q":1,"sp":false,"img":"elements_370026.jpg","blc":11},{"p":"2431","n":"Tile 1 x 4 with Groove","c":"Black","rgb":"05131D","cat":"Tiles","q":6,"sp":false,"img":"elements_243126.jpg","blc":11},{"p":"2555","n":"Tile Special 1 x 1 with Clip and Straight Tips","c":"Black","rgb":"05131D","cat":"Tiles Special","q":2,"sp":false,"img":"elements_255526.jpg","blc":11},{"p":"2432","n":"Tile Special 1 x 2 with Handle","c":"Black","rgb":"05131D","cat":"Tiles Special","q":2,"sp":false,"img":"elements_243226.jpg","blc":11},{"p":"3403","n":"Turntable 4 x 4 Square Base","c":"Black","rgb":"05131D","cat":"Hinges, Arms and Turntables","q":4,"sp":false,"img":"elements_340326.jpg","blc":11},{"p":"3404","n":"Turntable 4 x 4 Top","c":"Black","rgb":"05131D","cat":"Hinges, Arms and Turntables","q":4,"sp":false,"img":"elements_4221659.jpg","blc":11},{"p":"3849","n":"Weapon Lance","c":"Black","rgb":"05131D","cat":"Minifig Shields, Weapons, & Tools","q":2,"sp":false,"img":"elements_384926.jpg","blc":11},{"p":"3933","n":"Wedge Plate 8 x 4 Wing Left","c":"Black","rgb":"05131D","cat":"Plates Wedged","q":1,"sp":false,"img":"elements_393326.jpg","blc":11,"bl":"3933b"},{"p":"3934","n":"Wedge Plate 8 x 4 Wing Right with Stud Notch","c":"Black","rgb":"05131D","cat":"Plates Wedged","q":1,"sp":false,"img":"0_3934.png","blc":11,"bl":"3934b"},{"p":"2566","n":"Bar, 4 Top Bars, Palm Tree Top","c":"Blue","rgb":"0055BF","cat":"Bars, Ladders and Fences","q":2,"sp":false,"img":"1_2566.png","blc":7},{"p":"3005","n":"Brick 1 x 1","c":"Blue","rgb":"0055BF","cat":"Bricks","q":2,"sp":false,"img":"elements_300523.jpg","blc":7},{"p":"3004","n":"Brick 1 x 2","c":"Blue","rgb":"0055BF","cat":"Bricks","q":1,"sp":false,"img":"elements_300423.jpg","blc":7},{"p":"3008","n":"Brick 1 x 8","c":"Blue","rgb":"0055BF","cat":"Bricks","q":3,"sp":false,"img":"elements_300823.jpg","blc":7},{"p":"2357","n":"Brick 2 x 2 Corner","c":"Blue","rgb":"0055BF","cat":"Bricks","q":2,"sp":false,"img":"elements_235723.jpg","blc":7},{"p":"3001","n":"Brick 2 x 4","c":"Blue","rgb":"0055BF","cat":"Bricks","q":3,"sp":false,"img":"elements_300123.jpg","blc":7},{"p":"4589","n":"Cone 1 x 1 [No Top Groove]","c":"Blue","rgb":"0055BF","cat":"Bricks Round and Cones","q":2,"sp":false,"img":"elements_458923.jpg","blc":7},{"p":"3031","n":"Plate 4 x 4","c":"Blue","rgb":"0055BF","cat":"Plates","q":1,"sp":false,"img":"elements_303123.jpg","blc":7},{"p":"6141","n":"Plate Round 1 x 1 with Solid Stud","c":"Blue","rgb":"0055BF","cat":"Plates Round Curved and Dishes","q":4,"sp":false,"img":"elements_614123.jpg","blc":7,"bl":"4073"},{"p":"6141","n":"Plate Round 1 x 1 with Solid Stud","c":"Blue","rgb":"0055BF","cat":"Plates Round Curved and Dishes","q":1,"sp":true,"img":"elements_614123.jpg","blc":7,"bl":"4073"},{"p":"4032a","n":"Plate Round 2 x 2 with Axle Hole Type 1 (+ Opening)","c":"Blue","rgb":"0055BF","cat":"Plates Round Curved and Dishes","q":2,"sp":false,"img":"elements_403223.jpg","blc":7,"bl":"4032"},{"p":"2550c01","n":"Animal, Monkey [Complete Assembly]","c":"Brown","rgb":"583927","cat":"Animals / Creatures","q":1,"sp":false,"img":"6_2550c01.png","blc":8},{"p":"6020","n":"Bar 7 x 3 with Double Clips (Ladder) [Straight Clips]","c":"Brown","rgb":"583927","cat":"Bars, Ladders and Fences","q":1,"sp":false,"img":"elements_602025.jpg","blc":8},{"p":"2489","n":"Barrel 2 x 2 x 2","c":"Brown","rgb":"583927","cat":"Containers","q":1,"sp":false,"img":"elements_248925.jpg","blc":8},{"p":"2557c02","n":"Boat Hull Section, Large Bow 12 x 16 x 5 1/3 Red Top [Complete Assembly]","c":"Brown","rgb":"583927","cat":"Transportation - Sea and Air","q":1,"sp":false,"img":"6_2557c01.png","blc":8,"bl":"2556c02"},{"p":"2560","n":"Boat Hull Section, Large Middle 8 x 16 x 2 1/3 with 8 or 9 Holes","c":"Brown","rgb":"583927","cat":"Transportation - Sea and Air","q":3,"sp":false,"img":"6_2560.png","blc":8},{"p":"2559c02","n":"Boat Hull Section, Large Stern 14 x 16 x 5 1/3 with Red Top [Complete Assembly]","c":"Brown","rgb":"583927","cat":"Transportation - Sea and Air","q":1,"sp":false,"img":"6_2559c01.png","blc":8,"bl":"2558c02"},{"p":"2541","n":"Boat, Mast Rigging Long 27 x 5","c":"Brown","rgb":"583927","cat":"Transportation - Sea and Air","q":4,"sp":false,"img":"6_2541.png","blc":8},{"p":"2551","n":"Boat / Rowing Boat 14 x 5 x 2 with Oarlocks [2 Hollow Inside Studs]","c":"Brown","rgb":"583927","cat":"Transportation - Sea and Air","q":1,"sp":false,"img":"6_2551.png","blc":8},{"p":"4790","n":"Boat / Ship Wheel / Helm","c":"Brown","rgb":"583927","cat":"Transportation - Sea and Air","q":1,"sp":false,"img":"elements_479025.jpg","blc":8,"bl":"4790a"},{"p":"2542","n":"Equipment Oar / Paddle","c":"Brown","rgb":"583927","cat":"Minifig Accessories","q":2,"sp":false,"img":"elements_4106940.jpg","blc":8},{"p":"4032a","n":"Plate Round 2 x 2 with Axle Hole Type 1 (+ Opening)","c":"Brown","rgb":"583927","cat":"Plates Round Curved and Dishes","q":1,"sp":false,"img":"elements_403225.jpg","blc":8,"bl":"4032"},{"p":"4738b","n":"Treasure Chest Bottom with Rear Slots, with Groove","c":"Brown","rgb":"583927","cat":"Containers","q":1,"sp":false,"img":"elements_473825.jpg","blc":8,"bl":"4738a"},{"p":"4739a","n":"Treasure Chest Lid [Thick Hinge]","c":"Brown","rgb":"583927","cat":"Containers","q":1,"sp":false,"img":"elements_473925.jpg","blc":8},{"p":"2561","n":"Weapon Gun / Flintlock / Musket (Pirate)","c":"Brown","rgb":"583927","cat":"Minifig Shields, Weapons, & Tools","q":5,"sp":false,"img":"elements_256125.jpg","blc":8},{"p":"2562","n":"Weapon Gun / Pistol Flintlock","c":"Brown","rgb":"583927","cat":"Minifig Shields, Weapons, & Tools","q":1,"sp":true,"img":"elements_256225.jpg","blc":8},{"p":"2562","n":"Weapon Gun / Pistol Flintlock","c":"Brown","rgb":"583927","cat":"Minifig Shields, Weapons, & Tools","q":4,"sp":false,"img":"elements_256225.jpg","blc":8},{"p":"57503","n":"Money / Coin with \"10\" Sans-serif Type","c":"Chrome Gold","rgb":"BBA53D","cat":"Minifig Accessories","q":2,"sp":false,"img":"334_70501a.png","blc":21,"bl":"70501a"},{"p":"57504","n":"Money / Coin with \"20\" Sans-serif Type","c":"Chrome Gold","rgb":"BBA53D","cat":"Minifig Accessories","q":2,"sp":false,"img":"334_70501b.png","blc":21,"bl":"70501b"},{"p":"57505","n":"Money / Coin with \"30\" Sans-serif Type","c":"Chrome Gold","rgb":"BBA53D","cat":"Minifig Accessories","q":2,"sp":false,"img":"334_70501c.png","blc":21,"bl":"70501c"},{"p":"57506","n":"Money / Coin with \"40\" Sans-serif Type","c":"Chrome Gold","rgb":"BBA53D","cat":"Minifig Accessories","q":2,"sp":false,"img":"334_70501d.png","blc":21,"bl":"70501d"},{"p":"2547","n":"Animal Body Part, Shark Body, without Bottom Tube","c":"Dark Gray","rgb":"6D6E5C","cat":"Animal / Creature Body Parts","q":1,"sp":false,"img":"8_2547a.png","blc":10},{"p":"2548","n":"Animal Body Part, Shark Head","c":"Dark Gray","rgb":"6D6E5C","cat":"Animal / Creature Body Parts","q":1,"sp":false,"img":"8_2548.png","blc":10},{"p":"84943","n":"Launcher, Weapon Cannon Shooting","c":"Dark Gray","rgb":"6D6E5C","cat":"Projectiles / Launchers","q":4,"sp":false,"img":"8_2533c01.png","blc":10,"bl":"x110c01"},{"p":"2539","n":"Plate Special 6 x 6 Octagonal with Square Hole and 4 Clips (Boat Mast Platform)","c":"Dark Gray","rgb":"6D6E5C","cat":"Plates Special","q":2,"sp":false,"img":"8_2539.png","blc":10},{"p":"2530","n":"Weapon Sword / Cutlass","c":"Dark Gray","rgb":"6D6E5C","cat":"Minifig Shields, Weapons, & Tools","q":8,"sp":false,"img":"elements_253027.jpg","blc":10},{"p":"2530","n":"Weapon Sword / Cutlass","c":"Dark Gray","rgb":"6D6E5C","cat":"Minifig Shields, Weapons, & Tools","q":1,"sp":true,"img":"elements_253027.jpg","blc":10},{"p":"2335","n":"Flag 2 x 2 Square [Thin Clips]","c":"Green","rgb":"237841","cat":"Flags, Banners and Signs","q":8,"sp":false,"img":"elements_4622243.jpg","blc":6},{"p":"3957a","n":"Antenna 1 x 4 with Rounded Top","c":"Light Gray","rgb":"9BA19D","cat":"Bars, Ladders and Fences","q":4,"sp":false,"img":"7_3957a.png","blc":9},{"p":"4345b","n":"Box 2 x 2 x 2 [Hollow Studs]","c":"Light Gray","rgb":"9BA19D","cat":"Containers","q":1,"sp":false,"img":"elements_434502.jpg","blc":9,"bl":"4345"},{"p":"3004","n":"Brick 1 x 2","c":"Light Gray","rgb":"9BA19D","cat":"Bricks","q":2,"sp":false,"img":"elements_300402.jpg","blc":9},{"p":"3622","n":"Brick 1 x 3","c":"Light Gray","rgb":"9BA19D","cat":"Bricks","q":12,"sp":false,"img":"elements_362202.jpg","blc":9},{"p":"3010","n":"Brick 1 x 4","c":"Light Gray","rgb":"9BA19D","cat":"Bricks","q":10,"sp":false,"img":"elements_301002.jpg","blc":9},{"p":"2357","n":"Brick 2 x 2 Corner","c":"Light Gray","rgb":"9BA19D","cat":"Bricks","q":2,"sp":false,"img":"elements_235702.jpg","blc":9},{"p":"3659","n":"Brick Arch 1 x 4","c":"Light Gray","rgb":"9BA19D","cat":"Bricks Curved","q":2,"sp":false,"img":"elements_365902.jpg","blc":9},{"p":"3062b","n":"Brick Round 1 x 1 Open Stud","c":"Light Gray","rgb":"9BA19D","cat":"Bricks Round and Cones","q":28,"sp":false,"img":"elements_306202.jpg","blc":9,"bl":"3062"},{"p":"4625","n":"Hinge Tile 1 x 4","c":"Light Gray","rgb":"9BA19D","cat":"Hinges, Arms and Turntables","q":2,"sp":false,"img":"7_4625.png","blc":9},{"p":"4213","n":"Hinge Vehicle Roof 4 x 4","c":"Light Gray","rgb":"9BA19D","cat":"Hinges, Arms and Turntables","q":2,"sp":false,"img":"7_4213.png","blc":9},{"p":"3127","n":"Hook, Plate 1 x 2 with Crane Hook Left","c":"Light Gray","rgb":"9BA19D","cat":"Supports, Girders and Cranes","q":1,"sp":false,"img":"7_3127a.png","blc":9,"bl":"3127a"},{"p":"3024","n":"Plate 1 x 1","c":"Light Gray","rgb":"9BA19D","cat":"Plates","q":6,"sp":false,"img":"elements_302402.jpg","blc":9},{"p":"4477","n":"Plate 1 x 10","c":"Light Gray","rgb":"9BA19D","cat":"Plates","q":2,"sp":false,"img":"elements_447702.jpg","blc":9},{"p":"3023","n":"Plate 1 x 2","c":"Light Gray","rgb":"9BA19D","cat":"Plates","q":8,"sp":false,"img":"elements_302302.jpg","blc":9},{"p":"3623","n":"Plate 1 x 3","c":"Light Gray","rgb":"9BA19D","cat":"Plates","q":1,"sp":false,"img":"elements_362302.jpg","blc":9},{"p":"3710","n":"Plate 1 x 4","c":"Light Gray","rgb":"9BA19D","cat":"Plates","q":2,"sp":false,"img":"elements_371002.jpg","blc":9},{"p":"3666","n":"Plate 1 x 6","c":"Light Gray","rgb":"9BA19D","cat":"Plates","q":3,"sp":false,"img":"elements_366602.jpg","blc":9},{"p":"3460","n":"Plate 1 x 8","c":"Light Gray","rgb":"9BA19D","cat":"Plates","q":1,"sp":false,"img":"elements_346002.jpg","blc":9},{"p":"3832","n":"Plate 2 x 10","c":"Light Gray","rgb":"9BA19D","cat":"Plates","q":5,"sp":false,"img":"elements_383202.jpg","blc":9},{"p":"4282","n":"Plate 2 x 16","c":"Light Gray","rgb":"9BA19D","cat":"Plates","q":2,"sp":false,"img":"elements_428202.jpg","blc":9},{"p":"3022","n":"Plate 2 x 2","c":"Light Gray","rgb":"9BA19D","cat":"Plates","q":3,"sp":false,"img":"elements_302202.jpg","blc":9},{"p":"2420","n":"Plate 2 x 2 Corner","c":"Light Gray","rgb":"9BA19D","cat":"Plates","q":2,"sp":false,"img":"elements_242002.jpg","blc":9},{"p":"3020","n":"Plate 2 x 4","c":"Light Gray","rgb":"9BA19D","cat":"Plates","q":3,"sp":false,"img":"elements_302002.jpg","blc":9},{"p":"3795","n":"Plate 2 x 6","c":"Light Gray","rgb":"9BA19D","cat":"Plates","q":1,"sp":false,"img":"elements_379502.jpg","blc":9},{"p":"3034","n":"Plate 2 x 8","c":"Light Gray","rgb":"9BA19D","cat":"Plates","q":5,"sp":false,"img":"elements_303402.jpg","blc":9},{"p":"3030","n":"Plate 4 x 10","c":"Light Gray","rgb":"9BA19D","cat":"Plates","q":1,"sp":false,"img":"elements_303002.jpg","blc":9},{"p":"3029","n":"Plate 4 x 12","c":"Light Gray","rgb":"9BA19D","cat":"Plates","q":1,"sp":false,"img":"elements_302902.jpg","blc":9},{"p":"3035","n":"Plate 4 x 8","c":"Light Gray","rgb":"9BA19D","cat":"Plates","q":1,"sp":false,"img":"elements_303502.jpg","blc":9},{"p":"3036","n":"Plate 6 x 8","c":"Light Gray","rgb":"9BA19D","cat":"Plates","q":1,"sp":false,"img":"elements_303602.jpg","blc":9},{"p":"6019","n":"Plate Special 1 x 1 with Clip Horizontal [Thick U Clip]","c":"Light Gray","rgb":"9BA19D","cat":"Plates Special","q":2,"sp":false,"img":"elements_601902.jpg","blc":9},{"p":"4085c","n":"Plate Special 1 x 1 with Clip Vertical [Thick U Clip]","c":"Light Gray","rgb":"9BA19D","cat":"Plates Special","q":8,"sp":false,"img":"7_4085c.png","blc":9},{"p":"2540","n":"Plate Special 1 x 2 Side Handle [Free Ends]","c":"Light Gray","rgb":"9BA19D","cat":"Plates Special","q":1,"sp":false,"img":"elements_254002.jpg","blc":9},{"p":"73037","n":"String Reel Winch 2 x 4 x 2 (Light Gray Drum)","c":"Light Gray","rgb":"9BA19D","cat":"String, Bands and Reels","q":1,"sp":false,"img":"7_73037.png","blc":9},{"p":"3069b","n":"Tile 1 x 2 with Groove","c":"Light Gray","rgb":"9BA19D","cat":"Tiles","q":8,"sp":false,"img":"elements_306902.jpg","blc":9,"bl":"3069"},{"p":"2431","n":"Tile 1 x 4 with Groove","c":"Light Gray","rgb":"9BA19D","cat":"Tiles","q":19,"sp":false,"img":"elements_243102.jpg","blc":9},{"p":"4162","n":"Tile 1 x 8 with Groove","c":"Light Gray","rgb":"9BA19D","cat":"Tiles","q":9,"sp":false,"img":"elements_416202.jpg","blc":9},{"p":"2555","n":"Tile Special 1 x 1 with Clip and Straight Tips","c":"Light Gray","rgb":"9BA19D","cat":"Tiles Special","q":1,"sp":false,"img":"7_2555.png","blc":9},{"p":"2460","n":"Tile Special 2 x 2 with Top Pin","c":"Light Gray","rgb":"9BA19D","cat":"Tiles Special","q":1,"sp":false,"img":"elements_246002.jpg","blc":9},{"p":"3936","n":"Wedge Plate 4 x 4 Wing Left","c":"Light Gray","rgb":"9BA19D","cat":"Plates Wedged","q":1,"sp":false,"img":"7_3936.png","blc":9},{"p":"3935","n":"Wedge Plate 4 x 4 Wing Right","c":"Light Gray","rgb":"9BA19D","cat":"Plates Wedged","q":1,"sp":false,"img":"7_3935.png","blc":9},{"p":"3933","n":"Wedge Plate 8 x 4 Wing Left","c":"Light Gray","rgb":"9BA19D","cat":"Plates Wedged","q":1,"sp":false,"img":"elements_393302.jpg","blc":9,"bl":"3933b"},{"p":"3934","n":"Wedge Plate 8 x 4 Wing Right with Stud Notch","c":"Light Gray","rgb":"9BA19D","cat":"Plates Wedged","q":1,"sp":false,"img":"7_3934.png","blc":9,"bl":"3934b"},{"p":"2546pr0001","n":"Animal, Bird, Parrot with Coloured Feathers Print","c":"Red","rgb":"C91A09","cat":"Animals / Creatures","q":1,"sp":false,"img":"4_2546p01.png","blc":5,"bl":"2546p01"},{"p":"3005","n":"Brick 1 x 1","c":"Red","rgb":"C91A09","cat":"Bricks","q":2,"sp":false,"img":"elements_300521.jpg","blc":5},{"p":"3004","n":"Brick 1 x 2","c":"Red","rgb":"C91A09","cat":"Bricks","q":8,"sp":false,"img":"elements_300421.jpg","blc":5},{"p":"3622","n":"Brick 1 x 3","c":"Red","rgb":"C91A09","cat":"Bricks","q":2,"sp":false,"img":"elements_362221.jpg","blc":5},{"p":"3010","n":"Brick 1 x 4","c":"Red","rgb":"C91A09","cat":"Bricks","q":4,"sp":false,"img":"elements_301021.jpg","blc":5},{"p":"3008","n":"Brick 1 x 8","c":"Red","rgb":"C91A09","cat":"Bricks","q":5,"sp":false,"img":"elements_300821.jpg","blc":5},{"p":"2357","n":"Brick 2 x 2 Corner","c":"Red","rgb":"C91A09","cat":"Bricks","q":2,"sp":false,"img":"elements_235721.jpg","blc":5},{"p":"3659","n":"Brick Arch 1 x 4","c":"Red","rgb":"C91A09","cat":"Bricks Curved","q":2,"sp":false,"img":"elements_365921.jpg","blc":5},{"p":"4286","n":"Brick Sloped 33° 3 x 1","c":"Red","rgb":"C91A09","cat":"Bricks Sloped","q":1,"sp":false,"img":"elements_428621.jpg","blc":5},{"p":"3048c","n":"Brick Sloped 45° 2 x 1 Triple with Ovoid Bottom Pin","c":"Red","rgb":"C91A09","cat":"Bricks Sloped","q":2,"sp":false,"img":"elements_4195004.jpg","blc":5},{"p":"3040b","n":"Brick Sloped 45° 2 x 1 with Bottom Pin","c":"Red","rgb":"C91A09","cat":"Bricks Sloped","q":4,"sp":false,"img":"elements_4121934.jpg","blc":5,"bl":"3040"},{"p":"3747a","n":"Brick Sloped Inverted 33° 3 x 2, No Connections between Studs, Ovoid Bottom Pin","c":"Red","rgb":"C91A09","cat":"Bricks Sloped","q":2,"sp":false,"img":"elements_374721.jpg","blc":5},{"p":"4070","n":"Brick Special 1 x 1 with Headlight","c":"Red","rgb":"C91A09","cat":"Bricks Special","q":2,"sp":false,"img":"elements_407021.jpg","blc":5},{"p":"2527","n":"Launcher Base, Weapon Cannon Base 2 x 4","c":"Red","rgb":"C91A09","cat":"Projectiles / Launchers","q":4,"sp":false,"img":"elements_252721.jpg","blc":5},{"p":"4864a","n":"Panel 1 x 2 x 2 [Solid Studs]","c":"Red","rgb":"C91A09","cat":"Panels","q":2,"sp":false,"img":"4_4864a.png","blc":5},{"p":"3024","n":"Plate 1 x 1","c":"Red","rgb":"C91A09","cat":"Plates","q":1,"sp":false,"img":"elements_302421.jpg","blc":5},{"p":"3023","n":"Plate 1 x 2","c":"Red","rgb":"C91A09","cat":"Plates","q":5,"sp":false,"img":"elements_302321.jpg","blc":5},{"p":"3623","n":"Plate 1 x 3","c":"Red","rgb":"C91A09","cat":"Plates","q":1,"sp":false,"img":"elements_362321.jpg","blc":5},{"p":"3710","n":"Plate 1 x 4","c":"Red","rgb":"C91A09","cat":"Plates","q":4,"sp":false,"img":"elements_371021.jpg","blc":5},{"p":"3460","n":"Plate 1 x 8","c":"Red","rgb":"C91A09","cat":"Plates","q":1,"sp":false,"img":"elements_346021.jpg","blc":5},{"p":"3020","n":"Plate 2 x 4","c":"Red","rgb":"C91A09","cat":"Plates","q":9,"sp":false,"img":"elements_302021.jpg","blc":5},{"p":"3795","n":"Plate 2 x 6","c":"Red","rgb":"C91A09","cat":"Plates","q":5,"sp":false,"img":"elements_379521.jpg","blc":5},{"p":"3794a","n":"Plate Special 1 x 2 with 1 Stud without Groove (Jumper)","c":"Red","rgb":"C91A09","cat":"Plates Special","q":2,"sp":false,"img":"4_3794a.png","blc":5},{"p":"3176","n":"Plate Special 3 x 2 with Rounded End, Hole","c":"Red","rgb":"C91A09","cat":"Plates Special","q":1,"sp":false,"img":"elements_317621.jpg","blc":5},{"p":"4589","n":"Cone 1 x 1 [No Top Groove]","c":"Trans-Yellow","rgb":"F5CD2F","cat":"Bricks Round and Cones","q":2,"sp":false,"img":"elements_618844.jpg","blc":19},{"p":"6141","n":"Plate Round 1 x 1 with Solid Stud","c":"Trans-Yellow","rgb":"F5CD2F","cat":"Plates Round Curved and Dishes","q":4,"sp":false,"img":"elements_3005744.jpg","blc":19,"bl":"4073"},{"p":"6141","n":"Plate Round 1 x 1 with Solid Stud","c":"Trans-Yellow","rgb":"F5CD2F","cat":"Plates Round Curved and Dishes","q":1,"sp":true,"img":"elements_3005744.jpg","blc":19,"bl":"4073"},{"p":"3005","n":"Brick 1 x 1","c":"White","rgb":"FFFFFF","cat":"Bricks","q":2,"sp":false,"img":"elements_300501.jpg","blc":1},{"p":"3004","n":"Brick 1 x 2","c":"White","rgb":"FFFFFF","cat":"Bricks","q":4,"sp":false,"img":"elements_300401.jpg","blc":1},{"p":"2357","n":"Brick 2 x 2 Corner","c":"White","rgb":"FFFFFF","cat":"Bricks","q":2,"sp":false,"img":"elements_235701.jpg","blc":1},{"p":"2339","n":"Brick Arch 1 x 5 x 4 [Continuous Bow]","c":"White","rgb":"FFFFFF","cat":"Bricks Curved","q":4,"sp":false,"img":"elements_4528356.jpg","blc":1},{"p":"6091","n":"Brick Curved 1 x 2 x 1 1/3 with Curved Top","c":"White","rgb":"FFFFFF","cat":"Bricks Curved","q":10,"sp":false,"img":"elements_609101.jpg","blc":1},{"p":"4088","n":"Brick Curved 1 x 4 x 2 Centre Stud Top","c":"White","rgb":"FFFFFF","cat":"Bricks Curved","q":1,"sp":false,"img":"elements_4119497.jpg","blc":1},{"p":"4286","n":"Brick Sloped 33° 3 x 1","c":"White","rgb":"FFFFFF","cat":"Bricks Sloped","q":6,"sp":false,"img":"elements_428601.jpg","blc":1},{"p":"3040b","n":"Brick Sloped 45° 2 x 1 with Bottom Pin","c":"White","rgb":"FFFFFF","cat":"Bricks Sloped","q":4,"sp":false,"img":"elements_304001.jpg","blc":1,"bl":"3040"},{"p":"3038","n":"Brick Sloped 45° 2 x 3","c":"White","rgb":"FFFFFF","cat":"Bricks Sloped","q":2,"sp":false,"img":"elements_303801.jpg","blc":1},{"p":"3747a","n":"Brick Sloped Inverted 33° 3 x 2, No Connections between Studs, Ovoid Bottom Pin","c":"White","rgb":"FFFFFF","cat":"Bricks Sloped","q":2,"sp":false,"img":"elements_374701.jpg","blc":1},{"p":"4287a","n":"Brick Sloped Inverted 34° 3 x 1 without Internal Stopper","c":"White","rgb":"FFFFFF","cat":"Bricks Sloped","q":2,"sp":false,"img":"15_4287a.png","blc":1,"bl":"4287"},{"p":"4589","n":"Cone 1 x 1 [No Top Groove]","c":"White","rgb":"FFFFFF","cat":"Bricks Round and Cones","q":6,"sp":false,"img":"elements_458901.jpg","blc":1},{"p":"3861b","n":"Door 1 x 4 x 5 with 4 Panes, Squared Base","c":"White","rgb":"FFFFFF","cat":"Windows and Doors","q":2,"sp":false,"img":"elements_4160992.jpg","blc":1,"bl":"3861"},{"p":"2335pr0006","n":"Flag 2 x 2 Square [Thin Clips] with Skull and Crossbones Print","c":"White","rgb":"FFFFFF","cat":"Flags, Banners and Signs","q":1,"sp":false,"img":"15_2335p30.png","blc":1,"bl":"2335p30"},{"p":"2525pr0005","n":"Flag 6 x 4 with Clips with Skull and Crossbones (Jolly Roger) Print","c":"White","rgb":"FFFFFF","cat":"Flags, Banners and Signs","q":2,"sp":false,"img":"15_2525p31.png","blc":1,"bl":"2525p01"},{"p":"4215apr0016","n":"Panel 1 x 4 x 3 - Solid Studs with Jolly Roger Print","c":"White","rgb":"FFFFFF","cat":"Panels","q":1,"sp":false,"img":"15_4215ap30.png","blc":1,"bl":"4215ap30"},{"p":"3024","n":"Plate 1 x 1","c":"White","rgb":"FFFFFF","cat":"Plates","q":2,"sp":false,"img":"elements_302401.jpg","blc":1},{"p":"4477","n":"Plate 1 x 10","c":"White","rgb":"FFFFFF","cat":"Plates","q":1,"sp":false,"img":"elements_447701.jpg","blc":1},{"p":"3023","n":"Plate 1 x 2","c":"White","rgb":"FFFFFF","cat":"Plates","q":8,"sp":false,"img":"elements_302301.jpg","blc":1},{"p":"3623","n":"Plate 1 x 3","c":"White","rgb":"FFFFFF","cat":"Plates","q":4,"sp":false,"img":"elements_362301.jpg","blc":1},{"p":"3710","n":"Plate 1 x 4","c":"White","rgb":"FFFFFF","cat":"Plates","q":6,"sp":false,"img":"elements_371001.jpg","blc":1},{"p":"3666","n":"Plate 1 x 6","c":"White","rgb":"FFFFFF","cat":"Plates","q":2,"sp":false,"img":"elements_366601.jpg","blc":1},{"p":"3460","n":"Plate 1 x 8","c":"White","rgb":"FFFFFF","cat":"Plates","q":2,"sp":false,"img":"elements_346001.jpg","blc":1},{"p":"3022","n":"Plate 2 x 2","c":"White","rgb":"FFFFFF","cat":"Plates","q":2,"sp":false,"img":"elements_302201.jpg","blc":1},{"p":"2420","n":"Plate 2 x 2 Corner","c":"White","rgb":"FFFFFF","cat":"Plates","q":4,"sp":false,"img":"elements_242001.jpg","blc":1},{"p":"2540","n":"Plate Special 1 x 2 Side Handle [Free Ends]","c":"White","rgb":"FFFFFF","cat":"Plates Special","q":3,"sp":false,"img":"elements_254001.jpg","blc":1},{"p":"upn0034pr0003","n":"Sail, Bottom, 30 x 15 with Black Thick Stripes Print","c":"White","rgb":"FFFFFF","cat":"Transportation - Sea and Air","q":2,"sp":false,"img":"15_u9495p01.png","blc":1,"bl":"sailbb07"},{"p":"upn0027pr0002","n":"Sail, Square, 25 x 25 with Black Stripes, Skull and Crossbones Print","c":"White","rgb":"FFFFFF","cat":"Transportation - Sea and Air","q":1,"sp":false,"img":"15_u9499p01.png","blc":1,"bl":"sailbb31"},{"p":"upn0033pr0002","n":"Sail, Top, 27 x 17 with Black Thick Stripes Print","c":"White","rgb":"FFFFFF","cat":"Transportation - Sea and Air","q":1,"sp":false,"img":"15_u9494p01c01.png","blc":1,"bl":"sailbb06"},{"p":"71308pr0004","n":"Sail, Triangular, 15 x 22 with Black Thick Stripes Print","c":"White","rgb":"FFFFFF","cat":"Transportation - Sea and Air","q":2,"sp":false,"img":"15_u9496p01.png","blc":1,"bl":"sailbb15"},{"p":"3068bpr0058","n":"Tile 2 x 2 with Blue and Yellow Map Print","c":"White","rgb":"FFFFFF","cat":"Tiles","q":1,"sp":false,"img":"15_3068bp30.png","blc":1,"bl":"3068px9"},{"p":"973c27h27","n":"Torso, White Arms and Hands [Plain]","c":"White","rgb":"FFFFFF","cat":"Minifig Upper Body","q":1,"sp":false,"img":"elements_6313021.jpg","blc":1,"bl":"973c000"},{"p":"3933","n":"Wedge Plate 8 x 4 Wing Left","c":"White","rgb":"FFFFFF","cat":"Plates Wedged","q":1,"sp":false,"img":"elements_393301.jpg","blc":1,"bl":"3933b"},{"p":"3934","n":"Wedge Plate 8 x 4 Wing Right with Stud Notch","c":"White","rgb":"FFFFFF","cat":"Plates Wedged","q":1,"sp":false,"img":"15_3934.png","blc":1,"bl":"3934b"},{"p":"6104","n":"Wedge Plate 8 x 8 with 3 x 4 Cutout","c":"White","rgb":"FFFFFF","cat":"Plates Wedged","q":1,"sp":false,"img":"15_6104.png","blc":1},{"p":"3853","n":"Window 1 x 4 x 3","c":"White","rgb":"FFFFFF","cat":"Windows and Doors","q":1,"sp":false,"img":"elements_4175392.jpg","blc":1},{"p":"2343","n":"Equipment Goblet / Glass","c":"Yellow","rgb":"F2CD37","cat":"Minifig Accessories","q":1,"sp":false,"img":"elements_626924.jpg","blc":3},{"p":"3069b","n":"Tile 1 x 2 with Groove","c":"Yellow","rgb":"F2CD37","cat":"Tiles","q":8,"sp":false,"img":"elements_306924.jpg","blc":3,"bl":"3069"},{"p":"2529","n":"Window 1 x 2 x 3 Pane Latticed","c":"Yellow","rgb":"F2CD37","cat":"Windows and Doors","q":2,"sp":false,"img":"14_2529.png","blc":3}],"figs":[{"id":"fig-000053","n":"Pirate - Blue Jacket, Black Legs, Brown Tricorne","q":1,"img":"fig-000053_59633.jpg"},{"id":"fig-005503","n":"Pirate - Blue Jacket, White Legs, Black Tricorne (3626b Head)","q":1,"img":"fig-005503_59662.jpg"},{"id":"fig-005099","n":"Pirate - Blue Stripes, Blue Legs, Red Bandana, Gold Belt Buckle, 3626b","q":1,"img":"fig-005099_59400.jpg"},{"id":"fig-005124","n":"Pirate - Blue Stripes, White Legs, Red Bandana, Gold Belt Buckle, 3626b","q":1,"img":"fig-005124_59941.jpg"},{"id":"fig-005526","n":"Pirate - Brown Vest, Light Gray Legs, Black Tricorne","q":1,"img":"fig-005526_68706.jpg"},{"id":"fig-005262","n":"Pirate - Captain, Light Gray Hook, Bicorne with Skull, 3626b","q":1,"img":"fig-005262_59474.jpg"},{"id":"fig-005533","n":"Pirate - Female, White Legs, Blue Bandana, 3626b","q":1,"img":"fig-005533_60873.jpg"},{"id":"fig-000297","n":"Pirate - Red/Black Stripes, Blue Legs, Blue Bandana","q":1,"img":"fig-000297_137591.jpg"},{"id":"fig-005149","n":"Pirate - Red Stripes, Blue Legs, Blue Bandana","q":1,"img":"fig-005149_138340.jpg"}]},{"nr":"6592","name":"Vacation Hideaway","grp":"konvolut","year":1990,"parts":[{"p":"3004","n":"Brick 1 x 2","c":"Black","rgb":"05131D","cat":"Bricks","q":4,"sp":false,"img":"elements_300426.jpg","blc":11},{"p":"3660","n":"Brick Sloped Inverted 45° 2 x 2 [Ovoid Bottom Pin, Bar-sized Stud Holes]","c":"Black","rgb":"05131D","cat":"Bricks Sloped","q":1,"sp":false,"img":"elements_366026.jpg","blc":11},{"p":"4589","n":"Cone 1 x 1 [No Top Groove]","c":"Black","rgb":"05131D","cat":"Bricks Round and Cones","q":1,"sp":false,"img":"elements_458926.jpg","blc":11},{"p":"4528","n":"Equipment Frying Pan","c":"Black","rgb":"05131D","cat":"Minifig Accessories","q":1,"sp":false,"img":"elements_452826.jpg","blc":11},{"p":"3021","n":"Plate 2 x 3","c":"Black","rgb":"05131D","cat":"Plates","q":1,"sp":false,"img":"elements_302126.jpg","blc":11},{"p":"6141","n":"Plate Round 1 x 1 with Solid Stud","c":"Black","rgb":"05131D","cat":"Plates Round Curved and Dishes","q":1,"sp":true,"img":"elements_614126.jpg","blc":11,"bl":"4073"},{"p":"6141","n":"Plate Round 1 x 1 with Solid Stud","c":"Black","rgb":"05131D","cat":"Plates Round Curved and Dishes","q":4,"sp":false,"img":"elements_614126.jpg","blc":11,"bl":"4073"},{"p":"2540","n":"Plate Special 1 x 2 Side Handle [Free Ends]","c":"Black","rgb":"05131D","cat":"Plates Special","q":1,"sp":false,"img":"elements_254026.jpg","blc":11},{"p":"3794a","n":"Plate Special 1 x 2 with 1 Stud without Groove (Jumper)","c":"Black","rgb":"05131D","cat":"Plates Special","q":2,"sp":false,"img":"0_3794a.png","blc":11},{"p":"2412a","n":"Tile Special 1 x 2 Grille without Bottom Groove","c":"Black","rgb":"05131D","cat":"Tiles Special","q":2,"sp":false,"img":"0_2412a.png","blc":11},{"p":"4740","n":"Dish 2 x 2 Inverted [Radar]","c":"Blue","rgb":"0055BF","cat":"Plates Round Curved and Dishes","q":1,"sp":false,"img":"elements_4143699.jpg","blc":7},{"p":"6141","n":"Plate Round 1 x 1 with Solid Stud","c":"Blue","rgb":"0055BF","cat":"Plates Round Curved and Dishes","q":1,"sp":true,"img":"elements_614123.jpg","blc":7,"bl":"4073"},{"p":"6141","n":"Plate Round 1 x 1 with Solid Stud","c":"Blue","rgb":"0055BF","cat":"Plates Round Curved and Dishes","q":2,"sp":false,"img":"elements_614123.jpg","blc":7,"bl":"4073"},{"p":"3070bpr0030","n":"Tile 1 x 1 with White '60' Print","c":"Blue","rgb":"0055BF","cat":"Tiles","q":1,"sp":true,"img":"1_3070bp05.png","blc":7,"bl":"3070pb003"},{"p":"3070bpr0030","n":"Tile 1 x 1 with White '60' Print","c":"Blue","rgb":"0055BF","cat":"Tiles","q":1,"sp":false,"img":"1_3070bp05.png","blc":7,"bl":"3070pb003"},{"p":"3959","n":"Weapon Gun / Torch (Space) [with Grooves]","c":"Blue","rgb":"0055BF","cat":"Minifig Shields, Weapons, & Tools","q":2,"sp":false,"img":"1_3959.png","blc":7},{"p":"3867","n":"Baseplate 16 x 16","c":"Green","rgb":"237841","cat":"Baseplates","q":1,"sp":false,"img":"elements_4217115.jpg","blc":6},{"p":"3741","n":"Plant, Flower Stem","c":"Green","rgb":"237841","cat":"Plants & Trees","q":2,"sp":false,"img":"elements_374128.jpg","blc":6},{"p":"2435","n":"Plant, Pine Tree - Small 2 x 2 x 4","c":"Green","rgb":"237841","cat":"Plants & Trees","q":1,"sp":false,"img":"elements_243528.jpg","blc":6},{"p":"2412a","n":"Tile Special 1 x 2 Grille without Bottom Groove","c":"Light Gray","rgb":"9BA19D","cat":"Tiles Special","q":1,"sp":false,"img":"7_2412a.png","blc":9},{"p":"160395","n":"Sticker Sheet for Sets 6349-1, 6592-1","c":"[No Color/Any Color]","rgb":"05131D","cat":"Stickers","q":1,"sp":false,"img":"","blc":0,"bl":"6349stk01"},{"p":"4719","n":"Bicycle Frame [Solid Stud]","c":"Red","rgb":"C91A09","cat":"Transportation - Land","q":1,"sp":false,"img":"elements_4558856.jpg","blc":5},{"p":"3005","n":"Brick 1 x 1","c":"Red","rgb":"C91A09","cat":"Bricks","q":2,"sp":false,"img":"elements_300521.jpg","blc":5},{"p":"3004","n":"Brick 1 x 2","c":"Red","rgb":"C91A09","cat":"Bricks","q":3,"sp":false,"img":"elements_300421.jpg","blc":5},{"p":"3622","n":"Brick 1 x 3","c":"Red","rgb":"C91A09","cat":"Bricks","q":2,"sp":false,"img":"elements_362221.jpg","blc":5},{"p":"3010","n":"Brick 1 x 4","c":"Red","rgb":"C91A09","cat":"Bricks","q":1,"sp":false,"img":"elements_301021.jpg","blc":5},{"p":"3009","n":"Brick 1 x 6","c":"Red","rgb":"C91A09","cat":"Bricks","q":4,"sp":false,"img":"elements_300921.jpg","blc":5},{"p":"3665","n":"Brick Sloped Inverted 45° 2 x 1","c":"Red","rgb":"C91A09","cat":"Bricks Sloped","q":1,"sp":false,"img":"elements_366521.jpg","blc":5},{"p":"4070","n":"Brick Special 1 x 1 with Headlight","c":"Red","rgb":"C91A09","cat":"Bricks Special","q":3,"sp":false,"img":"elements_407021.jpg","blc":5},{"p":"2362a","n":"Panel 1 x 2 x 3 - Solid Studs","c":"Red","rgb":"C91A09","cat":"Panels","q":1,"sp":false,"img":"elements_4113024.jpg","blc":5},{"p":"3742","n":"Plant, Flower - Small","c":"Red","rgb":"C91A09","cat":"Plants & Trees","q":2,"sp":true,"img":"4_3742.png","blc":5},{"p":"3742","n":"Plant, Flower - Small","c":"Red","rgb":"C91A09","cat":"Plants & Trees","q":6,"sp":false,"img":"4_3742.png","blc":5},{"p":"3024","n":"Plate 1 x 1","c":"Red","rgb":"C91A09","cat":"Plates","q":4,"sp":false,"img":"elements_302421.jpg","blc":5},{"p":"3023","n":"Plate 1 x 2","c":"Red","rgb":"C91A09","cat":"Plates","q":3,"sp":false,"img":"elements_302321.jpg","blc":5},{"p":"3623","n":"Plate 1 x 3","c":"Red","rgb":"C91A09","cat":"Plates","q":2,"sp":false,"img":"elements_362321.jpg","blc":5},{"p":"3710","n":"Plate 1 x 4","c":"Red","rgb":"C91A09","cat":"Plates","q":2,"sp":false,"img":"elements_371021.jpg","blc":5},{"p":"3666","n":"Plate 1 x 6","c":"Red","rgb":"C91A09","cat":"Plates","q":1,"sp":false,"img":"elements_366621.jpg","blc":5},{"p":"3020","n":"Plate 2 x 4","c":"Red","rgb":"C91A09","cat":"Plates","q":1,"sp":false,"img":"elements_302021.jpg","blc":5},{"p":"6141","n":"Plate Round 1 x 1 with Solid Stud","c":"Red","rgb":"C91A09","cat":"Plates Round Curved and Dishes","q":1,"sp":true,"img":"elements_614121.jpg","blc":5,"bl":"4073"},{"p":"6141","n":"Plate Round 1 x 1 with Solid Stud","c":"Red","rgb":"C91A09","cat":"Plates Round Curved and Dishes","q":4,"sp":false,"img":"elements_614121.jpg","blc":5,"bl":"4073"},{"p":"4448","n":"Glass for Window 4 x 4 x 3 Roof","c":"Trans-Clear","rgb":"FCFCFC","cat":"Windows and Doors","q":1,"sp":false,"img":"elements_4522040.jpg","blc":12},{"p":"6141","n":"Plate Round 1 x 1 with Solid Stud","c":"Trans-Clear","rgb":"FCFCFC","cat":"Plates Round Curved and Dishes","q":2,"sp":true,"img":"elements_3005740.jpg","blc":12,"bl":"4073"},{"p":"6141","n":"Plate Round 1 x 1 with Solid Stud","c":"Trans-Clear","rgb":"FCFCFC","cat":"Plates Round Curved and Dishes","q":1,"sp":false,"img":"elements_3005740.jpg","blc":12,"bl":"4073"},{"p":"92851","n":"Wheel Bicycle, Fixed Black Tire","c":"Trans-Clear","rgb":"FCFCFC","cat":"Wheels and Tyres","q":2,"sp":false,"img":"elements_6503209.jpg","blc":12,"bl":"4720c01"},{"p":"6141","n":"Plate Round 1 x 1 with Solid Stud","c":"Trans-Red","rgb":"C91A09","cat":"Plates Round Curved and Dishes","q":4,"sp":false,"img":"elements_3005741.jpg","blc":17,"bl":"4073"},{"p":"6141","n":"Plate Round 1 x 1 with Solid Stud","c":"Trans-Red","rgb":"C91A09","cat":"Plates Round Curved and Dishes","q":1,"sp":true,"img":"elements_3005741.jpg","blc":17,"bl":"4073"},{"p":"4589","n":"Cone 1 x 1 [No Top Groove]","c":"Trans-Yellow","rgb":"F5CD2F","cat":"Bricks Round and Cones","q":1,"sp":false,"img":"elements_618844.jpg","blc":19},{"p":"6141","n":"Plate Round 1 x 1 with Solid Stud","c":"Trans-Yellow","rgb":"F5CD2F","cat":"Plates Round Curved and Dishes","q":1,"sp":true,"img":"elements_3005744.jpg","blc":19,"bl":"4073"},{"p":"6141","n":"Plate Round 1 x 1 with Solid Stud","c":"Trans-Yellow","rgb":"F5CD2F","cat":"Plates Round Curved and Dishes","q":2,"sp":false,"img":"elements_3005744.jpg","blc":19,"bl":"4073"},{"p":"3005","n":"Brick 1 x 1","c":"White","rgb":"FFFFFF","cat":"Bricks","q":2,"sp":false,"img":"elements_300501.jpg","blc":1},{"p":"73194c01","n":"Door 1 x 4 x 5 Right with Trans-Clear Glass","c":"White","rgb":"FFFFFF","cat":"Windows and Doors","q":1,"sp":false,"img":"15_73194c01.png","blc":1,"bl":"73435c01"},{"p":"3633","n":"Fence Lattice 1 x 4 x 1","c":"White","rgb":"FFFFFF","cat":"Bars, Ladders and Fences","q":2,"sp":false,"img":"elements_363301.jpg","blc":1},{"p":"3794a","n":"Plate Special 1 x 2 with 1 Stud without Groove (Jumper)","c":"White","rgb":"FFFFFF","cat":"Plates Special","q":1,"sp":false,"img":"15_3794a.png","blc":1},{"p":"3069bpr0099","n":"Tile 1 x 2 with Mail Envelope, Letter, Address and Red Stamp Print","c":"White","rgb":"FFFFFF","cat":"Tiles","q":1,"sp":false,"img":"elements_4521848.jpg","blc":1,"bl":"3069p01"},{"p":"3081c01","n":"Window 1 x 2 x 2 Classic, Short Lip [with Glass]","c":"White","rgb":"FFFFFF","cat":"Windows and Doors","q":2,"sp":false,"img":"15_3081cc01.png","blc":1,"bl":"7026c01"},{"p":"4447","n":"Window 4 x 4 x 3 Roof","c":"White","rgb":"FFFFFF","cat":"Windows and Doors","q":1,"sp":false,"img":"elements_4522041.jpg","blc":1},{"p":"3039","n":"Brick Sloped 45° 2 x 2","c":"Yellow","rgb":"F2CD37","cat":"Bricks Sloped","q":7,"sp":false,"img":"elements_303924.jpg","blc":3},{"p":"3037","n":"Brick Sloped 45° 2 x 4","c":"Yellow","rgb":"F2CD37","cat":"Bricks Sloped","q":1,"sp":false,"img":"elements_303724.jpg","blc":3},{"p":"3041","n":"Brick Sloped 45° 2 x 4 Double","c":"Yellow","rgb":"F2CD37","cat":"Bricks Sloped","q":2,"sp":false,"img":"14_3041.png","blc":3},{"p":"4445","n":"Brick Sloped 45° 2 x 8","c":"Yellow","rgb":"F2CD37","cat":"Bricks Sloped","q":8,"sp":false,"img":"elements_4258384.jpg","blc":3}],"figs":[{"id":"fig-008986","n":"Man, Red and White Striped Shirt, Blue Legs, Black Hair","q":1,"img":"fig-008986_109743.jpg"},{"id":"fig-008987","n":"Woman, White Shirt with Gold Necklace, White Legs, Red Hair","q":1,"img":"fig-008987_136480.jpg"}]}];
+const LS = "lego-inventur-v1-6286-6592";
+let state = JSON.parse(localStorage.getItem(LS) || "{}");
+let cur = state._tab || DATA[0].nr;
+
+const save = () => {
+  state._tab = cur;
+  localStorage.setItem(LS, JSON.stringify(state));
+  scheduleBackup();
+};
+const key = (s,p) => p.id ? `${s}|fig|${p.id}` : `${s}|${p.p}|${p.c}`;
+const ist = k => state[k] || 0;
+const dkey = k => "def|" + k;
+const defs = k => state[dkey(k)] || 0;
+let activeK = null, flashK = null;
+const rowByK = k => document.querySelector(`tr.row[data-k="${CSS.escape(k)}"]`);
+
+const hist = [];
+function change(k, val, isDef) {
+  const kk = isDef ? dkey(k) : k;
+  if ((state[kk] || 0) === val) return;
+  hist.push([kk, state[kk] || 0]);
+  if (hist.length > 300) hist.shift();
+  state[kk] = val;
+  save();
+}
+function undo() {
+  const h = hist.pop();
+  if (!h) return;
+  state[h[0]] = h[0] === "_rest" ? JSON.parse(h[1]) : h[1];
+  save(); render();
+}
+
+// Fehlmenge einer Position: nicht gefunden + defekt gezählte
+function missOf(nr, p) {
+  const k = key(nr, p);
+  const have = Math.min(ist(k), p.q);
+  return (p.q - have) + Math.min(defs(k), have);
+}
+
+function studs(name) {
+  const m = name.match(/(\d+)\s*x\s*(\d+)(?:\s*x\s*(\d+))?/);
+  return m ? (+m[1]) * (+m[2]) : 0;
+}
+function items(set) {
+  const figs = set.figs.map(f => ({...f, cat:"Minifigs", rgb:"", c:"", sp:false}));
+  return figs.concat(set.parts.filter(p => !p.sp));  // Ersatzteile bleiben im Stoß
+}
+// Teil+Farbe -> Vorkommen in allen Sets (für Überschuss-Querverweis)
+const XREF = {};
+for (const s of DATA) for (const p of s.parts) {
+  const x = p.p + "|" + p.c;
+  (XREF[x] = XREF[x] || []).push([s.nr, p.q]);
+}
+
+// ---- Sortiermodus: globaler Teile-Index (Teil+Farbe -> Kandidaten-Sets) ----
+const SORT = "__sort";
+const YELLOW = ["White", "Light Gray", "Light Bluish Gray"];
+const GLOBAL = [];
+{
+  const seen = {};
+  for (const s of DATA) for (const p of s.parts) {
+    if (p.sp) continue;
+    const x = p.p + "|" + p.c;
+    if (!seen[x]) GLOBAL.push(seen[x] = { x, p:p.p, n:p.n, c:p.c, rgb:p.rgb, cat:p.cat,
+                                          img:p.img, st:studs(p.n), sets:[] });
+    seen[x].sets.push([s.nr, p.q]);
+  }
+}
+// Vorerst nur Konvolut-Sets sortieren; „Meine Sets" bleiben außen vor (2026-08-22)
+const SORT_SETS = DATA.filter(s => s.grp === "konvolut").map(s => s.nr);
+// Konvolut-Rest eines Teils (Teil+Farbe): Soll − Ist über alle Konvolut-Sets, ohne Ersatzteile.
+// Sinkt live beim Buchen — häufige Teile lassen sich zuerst aus dem Stoß fischen.
+const GIDX = {};
+for (const g of GLOBAL) GIDX[g.x] = g;
+const konvRest = p => {
+  const g = p.p && GIDX[p.p + "|" + p.c];
+  if (!g) return 0;  // Minifigs & Nur-Ersatzteile: 0
+  return g.sets.reduce((a, [nr, q]) =>
+    a + (SORT_SETS.includes(nr) ? Math.max(0, q - ist(`${nr}|${p.p}|${p.c}`)) : 0), 0);
+};
+const batchSets = () => state._batch ? state._batch.filter(nr => SORT_SETS.includes(nr)) : SORT_SETS;
+const lastBooked = {};  // x -> zuletzt gebuchter Key (für "−")
+const recKey = g => {  // empfohlenes Set: erstes in Inventur-Reihenfolge, in dem noch etwas fehlt
+  const b = batchSets(), cand = g.sets.filter(x => b.includes(x[0]));
+  const o = cand.find(([nr, q]) => ist(`${nr}|${g.p}|${g.c}`) < q);
+  return o ? `${o[0]}|${g.p}|${g.c}` : null;
+};
+
+const esc = s => s.replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+function renderSort() {
+  const q = document.getElementById("q").value.toLowerCase();
+  const stSel = document.getElementById("studsSel").value;
+  const noY = document.getElementById("noYellow").checked;
+  const b = batchSets();
+  let list = GLOBAL.filter(g => g.sets.some(x => b.includes(x[0])));
+  if (q) list = list.filter(g => (g.n + " " + g.p + " " + g.c).toLowerCase().includes(q));
+  if (noY) list = list.filter(g => !YELLOW.includes(g.c));
+  if (stSel) { const [lo, hi] = stSel.split("-").map(Number); list = list.filter(g => g.st >= lo && g.st <= hi); }
+  if (colorSel.size) list = list.filter(g => colorSel.has(g.c));
+  renderColors(GLOBAL);
+  // Sortierung wie im Set-Modus (Stückzahl/Offen beziehen sich auf die Sets auf dem Tisch)
+  const inB = g => g.sets.filter(x => b.includes(x[0]));
+  const soll = g => inB(g).reduce((a, x) => a + x[1], 0);
+  const open = g => inB(g).some(([nr, q]) => ist(`${nr}|${g.p}|${g.c}`) < q);
+  if (document.getElementById("hideDone").checked) list = list.filter(open);
+  const CS = {
+    cat:   (a, c) => a.cat.localeCompare(c.cat),
+    color: (a, c) => a.c.localeCompare(c.c),
+    size:  (a, c) => c.st - a.st,
+    qty:   (a, c) => soll(c) - soll(a),
+    konv:  (a, c) => konvRest(c) - konvRest(a),
+    open:  (a, c) => open(c) - open(a),
+    name:  (a, c) => a.n.localeCompare(c.n),
+  };
+  const s1 = CS[document.getElementById("sort").value] || CS.color;
+  const s2 = CS[document.getElementById("sort2").value];
+  list.sort((a, c) => s1(a, c) || (s2 && s2(a, c)) || a.c.localeCompare(c.c) || c.st - a.st || a.n.localeCompare(c.n));
+
+  const rows = [];
+  let lastCat = null;
+  const byCat = document.getElementById("sort").value === "cat";
+  for (const g of list) {
+    if (byCat && g.cat !== lastCat) {
+      lastCat = g.cat;
+      rows.push(`<tr class="ghead"><td colspan="4">${g.cat}</td></tr>`);
+    }
+    const rk = recKey(g);
+    let allDone = true, i = 0;
+    const cells = g.sets.filter(x => b.includes(x[0])).map(([nr, q]) => {
+      const k = `${nr}|${g.p}|${g.c}`, v = ist(k);
+      const cls = v > q ? "over" : v >= q ? "done" : v > 0 ? "part" : "";
+      if (v < q) allDone = false;
+      i++;
+      return `<button class="setbtn ${cls}${k === rk ? " rec" : ""}" data-k="${k}" data-q="${q}"
+                title="${DATA.find(s => s.nr === nr).name}"><span class="idx">${i}</span>${nr}: ${v}/${q}</button>`;
+    });
+    const img = g.img ? `<img src="bilder/teile/${g.img}" loading="lazy" decoding="async">` : "";
+    const sw = g.rgb ? `<span class="sw" style="background:#${g.rgb}"></span>` : "";
+    rows.push(`<tr class="row srow${allDone ? " done" : ""}" data-k="${g.x}">
+      <td class="img">${img}</td>
+      <td class="name">${g.n}<br><small>${g.p} · ${g.cat}</small></td>
+      <td class="col">${sw}${g.c}</td>
+      <td class="sets">${cells.join("")}</td></tr>`);
+  }
+  const rest = Object.entries(state._rest || {}).sort();
+  const restHtml = `<h2>Fremdbestand (gehört zu keinem Set) <span class="n">${
+      rest.reduce((a, r) => a + r[1], 0)} Teile</span></h2>` +
+    (rest.length ? `<table>${rest.map(([t, n]) => `<tr data-rest="${esc(t)}">
+      <td>${esc(t)}</td><td class="qty">${n}</td><td class="act">
+      <button class="restbtn rminus">−</button> <button class="restbtn rplus">+1</button></td></tr>`).join("")}</table>`
+      : `<div class="hint">noch nichts gebucht</div>`);
+  document.getElementById("main").innerHTML =
+    (list.length ? `<table><tr><th>Bild</th><th>Teil</th><th>Farbe</th>
+       <th>Sets (Ist/Soll) — Klick = +1 dort</th></tr>${rows.join("")}</table>`
+     : `<div class="hint">Kein Teil passt zur Suche${q ? ` „${esc(q)}“ — <button class="restbtn" id="restQuick">als Fremdbestand buchen</button>` : ""}.</div>`) +
+    restHtml;
+  if (activeK && rowByK(activeK)) rowByK(activeK).classList.add("active");
+  if (flashK) { document.querySelector(`button.setbtn[data-k="${CSS.escape(flashK)}"]`)?.closest("tr")?.classList.add("flash"); flashK = null; }
+  statsSort(b);
+}
+const counted = p => !p.sp && p.cat !== "Stickers";  // Fortschritt/%: ohne Ersatzteile und ohne Stickerbögen (2026-09-11)
+function statsSort(b) {
+  const sets = DATA.filter(s => b.includes(s.nr));
+  const soll = sets.reduce((a, s) => a + s.parts.filter(counted).reduce((x, p) => x + p.q, 0), 0);
+  const have = sets.reduce((a, s) => a + s.parts.filter(counted)
+    .reduce((x, p) => x + Math.min(ist(key(s.nr, p)), p.q), 0), 0);
+  const rest = Object.values(state._rest || {}).reduce((a, n) => a + n, 0);
+  document.getElementById("stats").innerHTML =
+    `<span><b>Sortieren</b> (${sets.length} Sets auf dem Tisch)</span>
+     <span>${have} / ${soll} Teile zugeordnet (${soll ? Math.round(have/soll*100) : 0} %)</span>
+     <span>${rest} Teile Fremdbestand</span>`;
+  document.querySelector("#bar div").style.width = (soll ? have/soll*100 : 0) + "%";
+  updateSummary();
+}
+function addRest(t, d) {
+  t = t.trim();
+  if (!t) return;
+  const r = state._rest = state._rest || {};
+  const old = Object.hasOwn(r, t) ? r[t] : 0;
+  if (old + d < 0) return;
+  hist.push(["_rest", JSON.stringify(r)]);
+  if (hist.length > 300) hist.shift();
+  r[t] = old + d;
+  if (r[t] <= 0) delete r[t];
+  save(); render();
+}
+function bookSort(x, k, q, d) {  // x = Index-Key (Teil|Farbe), k = Set-Position
+  const nv = Math.max(0, ist(k) + d);
+  if (d > 0 && nv === q) flashK = k;
+  lastBooked[x] = k;
+  change(k, nv); render();
+}
+
+function catOrder(set) {
+  const tot = {};
+  for (const p of set.parts) if (!p.sp) tot[p.cat] = (tot[p.cat]||0) + p.q;
+  const order = { "Minifigs": -1 };
+  Object.keys(tot).sort((a,b) => tot[a]-tot[b]).forEach((c,i) => order[c] = i);
+  return order;
+}
+
+function render() {
+  document.body.classList.toggle("sortmode", cur === SORT);
+  requestAnimationFrame(setHeadH);
+  if (cur === SORT) return renderSort();
+  const set = DATA.find(s => s.nr === cur);
+  const q = document.getElementById("q").value.toLowerCase();
+  const sort = document.getElementById("sort").value;
+  const hideDone = document.getElementById("hideDone").checked;
+  const order = catOrder(set);
+  let list = items(set).filter(p =>
+    !q || (p.n + " " + (p.p||p.id) + " " + p.c).toLowerCase().includes(q));
+  if (hideDone) list = list.filter(p => ist(key(cur,p)) < p.q);
+  if (colorSel.size) list = list.filter(p => colorSel.has(p.c));
+  renderColors(set.parts.filter(p => !p.sp));
+
+  const C = {
+    cat:   (a,b) => order[a.cat] - order[b.cat],
+    color: (a,b) => (a.c || "zz").localeCompare(b.c || "zz"),
+    size:  (a,b) => studs(b.n) - studs(a.n),
+    qty:   (a,b) => b.q - a.q,
+    konv:  (a,b) => konvRest(b) - konvRest(a),
+    open:  (a,b) => (ist(key(cur,a)) >= a.q) - (ist(key(cur,b)) >= b.q),
+    name:  (a,b) => a.n.localeCompare(b.n),
+  };
+  const sort2 = document.getElementById("sort2").value;
+  const s1 = C[sort], s2 = sort2 ? C[sort2] : null;
+  list.sort((a,b) => s1(a,b) || (s2 && s2(a,b)) || a.n.localeCompare(b.n));
+
+  const rows = [];
+  let lastGrp = null;
+  for (const p of list) {
+    const g = p.cat;
+    if (sort === "cat" && g !== lastGrp) {
+      lastGrp = g;
+      const n = list.filter(x => x.cat === g).reduce((a,x) => a+x.q, 0);
+      rows.push(`<tr class="ghead"><td colspan="7">
+                 ${g} <span style="color:#888;font-weight:400">(${n} Teile)</span></td></tr>`);
+    }
+    const k = key(cur,p), v = ist(k), d = defs(k);
+    const cls = v > p.q ? "over" : v >= p.q ? "done" : v > 0 ? "part" : "";
+    const img = p.img ? `<img src="bilder/teile/${p.img}" loading="lazy" decoding="async">` : "";
+    const sw = p.rgb ? `<span class="sw" style="background:#${p.rgb}"></span>` : "";
+    let xr = "";
+    if (v > p.q && p.p) {
+      const o = (XREF[p.p + "|" + p.c] || []).filter(x => x[0] !== cur);
+      xr = `<div class="xref">Überschuss ${v - p.q}×` +
+           (o.length ? ` · auch in: ${o.map(x => `${x[0]} (${x[1]}×)`).join(", ")}`
+                     : " · in keinem anderen Set") + `</div>`;
+    }
+    rows.push(`<tr class="row ${cls}" data-k="${k}" data-q="${p.q}">
+      <td class="img">${img}</td>
+      <td class="name">${p.n}<br><small>${p.p||p.id}</small>${xr}</td>
+      <td class="col">${sw}${p.c||"–"}</td>
+      <td class="qty">${p.q}</td>
+      <td class="ist" title="Klicken: Menge eintippen">${v}</td>
+      <td class="act">
+        <button class="minus">−</button><button class="plus">+1</button>
+        <button class="all">✓ alle</button>
+        <button class="def${d ? ' on' : ''}" title="defekt/vergilbt zählen (zählt als Fehlteil)">⚠${d || ""}</button>
+      </td></tr>`);
+  }
+  document.getElementById("main").innerHTML =
+    `<table><tr><th>Bild</th><th>Teil</th><th>Farbe</th><th>Soll</th><th>Ist</th>
+     <th>Zählen</th></tr>${rows.join("")}</table>`;
+  if (activeK && rowByK(activeK)) rowByK(activeK).classList.add("active");
+  if (flashK) { rowByK(flashK)?.classList.add("flash"); flashK = null; }
+  stats(set);
+}
+
+// Farbfilter-Chips (pro Set bzw. global im Sortiermodus)
+const colorSel = new Set();
+const colorbar = document.getElementById("colorbar");
+function renderColors(parts) {
+  const uniq = new Map();
+  for (const p of parts) if (!uniq.has(p.c)) uniq.set(p.c, p.rgb);
+  colorbar.innerHTML = [...uniq].sort((a, b) => a[0].localeCompare(b[0])).map(([c, rgb]) =>
+    `<span class="chip${colorSel.has(c) ? " on" : ""}" data-c="${c}" title="${c}"
+       style="background:#${rgb}"></span>`).join("") +
+    (colorSel.size ? `<button id="clearCol">Farbfilter aus</button>` : "");
+}
+colorbar.addEventListener("click", e => {
+  if (e.target.id === "clearCol") { colorSel.clear(); render(); return; }
+  const c = e.target.dataset?.c;
+  if (c === undefined) return;
+  colorSel.has(c) ? colorSel.delete(c) : colorSel.add(c);
+  render();
+});
+
+function editIst(tr) {
+  const k = tr.dataset.k, q = +tr.dataset.q, td = tr.querySelector("td.ist");
+  if (td.querySelector("input")) return;
+  const inp = document.createElement("input");
+  inp.type = "number"; inp.min = 0; inp.value = ist(k);
+  td.textContent = ""; td.appendChild(inp); inp.focus(); inp.select();
+  let done = false;
+  const commit = () => {
+    if (done) return;
+    done = true;
+    const v = Math.max(0, +inp.value || 0);
+    if (v >= q && ist(k) < q) flashK = k;
+    change(k, v); render();
+  };
+  inp.addEventListener("keydown", ev => {
+    if (ev.key === "Enter") commit();
+    else if (ev.key === "Escape") { done = true; render(); }
+    ev.stopPropagation();
+  });
+  inp.addEventListener("blur", commit);
+}
+
+function stats(set) {
+  const all = items(set).filter(counted);
+  const soll = all.reduce((a,p) => a+p.q, 0);
+  const have = all.reduce((a,p) => a+Math.min(ist(key(cur,p)), p.q), 0);
+  const missPos = all.filter(p => missOf(cur, p) > 0).length;
+  const defTot = all.reduce((a,p) => a + Math.min(defs(key(cur,p)), p.q), 0);
+  document.getElementById("stats").innerHTML =
+    `<span><b>${set.nr} ${set.name}</b></span>
+     <span>${have} / ${soll} Teile erfasst (${Math.round(have/soll*100)} %)</span>
+     <span class="miss">${missPos} Positionen offen</span>` +
+    (defTot ? `<span class="miss">⚠ ${defTot} defekt</span>` : "");
+  document.querySelector("#bar div").style.width = (have/soll*100) + "%";
+  updateSummary();
+}
+function updateSummary() {
+  const summary = {};
+  for (const s of DATA) {
+    const a = items(s).filter(counted);
+    const t = a.reduce((x,p) => x+p.q, 0);
+    const h = a.reduce((x,p) => x+Math.min(ist(key(s.nr,p)), p.q), 0);
+    summary[s.nr] = { h, t };
+    document.querySelector(`#tab-${s.nr} .pct`).textContent =
+      h === 0 ? "" : ` ${Math.round(h/t*100)}%`;
+  }
+  localStorage.setItem("lego-inventur-progress", JSON.stringify(summary));
+  orderTabs(summary);
+}
+// Leiste: Inventur-Reihenfolge oder nach Fortschritt (fertigste zuerst)
+function orderTabs(summary) {
+  const byPct = !!state._order;
+  document.getElementById("orderBtn").textContent = byPct ? "⇅ Fortschritt" : "⇅ Inventur-Reihenfolge";
+  const grp = DATA.map(s => s.nr);
+  if (byPct) grp.sort((a, b) => summary[b].h / summary[b].t - summary[a].h / summary[a].t);
+  for (const nr of grp) tabs.appendChild(document.getElementById("tab-" + nr));
+}
+document.getElementById("orderBtn").onclick = e => {
+  e.target.blur(); state._order = state._order ? 0 : 1; save(); updateSummary();
+};
+
+document.getElementById("main").addEventListener("click", e => {
+  if (cur === SORT) {
+    if (e.target.id === "restQuick") return addRest(document.getElementById("q").value, 1);
+    const rr = e.target.closest("tr[data-rest]");
+    if (rr) {
+      if (e.target.classList.contains("rplus")) addRest(rr.dataset.rest, 1);
+      else if (e.target.classList.contains("rminus")) addRest(rr.dataset.rest, -1);
+      return;
+    }
+    const tr = e.target.closest("tr.srow");
+    if (!tr) return;
+    activeK = tr.dataset.k;
+    const btn = e.target.closest("button.setbtn");
+    if (btn) bookSort(tr.dataset.k, btn.dataset.k, +btn.dataset.q, 1);
+    else render();
+    return;
+  }
+  const tr = e.target.closest("tr.row");
+  if (!tr || e.target.tagName === "INPUT") return;
+  const k = tr.dataset.k, q = +tr.dataset.q;
+  activeK = k;
+  if (e.target.classList.contains("minus")) change(k, Math.max(0, ist(k) - 1));
+  else if (e.target.classList.contains("all")) { if (ist(k) < q) flashK = k; change(k, q); }
+  else if (e.target.classList.contains("def")) change(k, (defs(k) + 1) % (q + 1), true);
+  else if (e.target.closest("td.ist")) { render(); return editIst(rowByK(k)); }
+  else { const nv = ist(k) + 1; if (nv === q) flashK = k; change(k, nv); }
+  render();
+});
+
+// Tastatursteuerung
+document.addEventListener("keydown", e => {
+  if (["INPUT", "SELECT", "TEXTAREA", "BUTTON"].includes(e.target.tagName)) return;
+  if (e.ctrlKey && e.key.toLowerCase() === "z") { e.preventDefault(); undo(); return; }
+  if (e.ctrlKey || e.altKey || e.metaKey) return;
+  const rows = [...document.querySelectorAll("tr.row")];
+  if (!rows.length) return;
+  let i = rows.findIndex(r => r.dataset.k === activeK);
+  const nav = d => {
+    i = Math.max(0, Math.min(rows.length - 1, (i < 0 ? (d > 0 ? -1 : 0) : i) + d));
+    document.querySelector("tr.row.active")?.classList.remove("active");
+    activeK = rows[i].dataset.k;
+    rows[i].classList.add("active");
+    rows[i].scrollIntoView({ block: "nearest" });
+  };
+  if (e.key === "ArrowDown") { e.preventDefault(); nav(1); return; }
+  if (e.key === "ArrowUp") { e.preventDefault(); nav(-1); return; }
+  const tr = i >= 0 ? rows[i] : null;
+  if (!tr) return;
+  if (cur === SORT) {
+    const x = tr.dataset.k, btns = [...tr.querySelectorAll("button.setbtn")];
+    let b = null;
+    if (e.key === "+" || e.key === "Enter") b = tr.querySelector("button.rec");  // alles voll: nichts buchen
+    else if (/^[1-9]$/.test(e.key)) b = btns[+e.key - 1];
+    else if (e.key === "-") {
+      const lk = lastBooked[x];
+      b = btns.find(z => z.dataset.k === lk) || tr.querySelector("button.rec") || btns[0];
+      if (b) bookSort(x, b.dataset.k, +b.dataset.q, -1);
+      return;
+    }
+    if (b) bookSort(x, b.dataset.k, +b.dataset.q, 1);
+    return;
+  }
+  const k = tr.dataset.k, q = +tr.dataset.q;
+  if (e.key === "+" || e.key === "Enter") {
+    const nv = ist(k) + 1; if (nv === q) flashK = k; change(k, nv); render();
+  } else if (e.key === "-") { change(k, Math.max(0, ist(k) - 1)); render(); }
+  else if (e.key.toLowerCase() === "a") { if (ist(k) < q) flashK = k; change(k, q); render(); }
+  else if (e.key.toLowerCase() === "d") { change(k, (defs(k) + 1) % (q + 1), true); render(); }
+  else if (e.key.toLowerCase() === "e") { e.preventDefault(); editIst(tr); }
+});
+
+const tabs = document.getElementById("tabs");
+const GRPS = { konvolut: "Konvolut", meine: "Meine Sets" };
+tabs.innerHTML = `<button id="tab-__sort" class="sorttab" title="Teil zuerst: Stein in der Hand → welches Set?">🔍 Sortieren</button>` +
+  Object.entries(GRPS).filter(([g]) => DATA.some(s => s.grp === g)).map(([g, label]) =>
+  `<span class="glabel">${label}:</span>` +
+  DATA.filter(s => s.grp === g).map(s =>
+    `<button id="tab-${s.nr}" title="${s.name}${s.v ? " — auf Verdacht" : ""}">` +
+    `<img src="bilder/${s.nr}.jpg" alt="">${s.nr}${s.v ? "?" : ""}` +
+    `<span class="pct"></span></button>`).join("")
+).join("");
+tabs.addEventListener("click", e => {
+  const b = e.target.closest("button");
+  if (b) { cur = b.id.slice(4); colorSel.clear(); save(); markTab(); render(); }
+});
+const markTab = () => [...DATA.map(s => s.nr), SORT].forEach(nr =>
+  document.getElementById("tab-"+nr).classList.toggle("active", nr === cur));
+
+// Ansicht (Suche/Sortierung/Filter) wiederherstellen und mitspeichern
+document.getElementById("q").value = state._q || "";
+document.getElementById("sort").value = state._sort || "cat";
+document.getElementById("sort2").value = state._sort2 || "";
+document.getElementById("hideDone").checked = !!state._hide;
+for (const id of ["q","sort","sort2","hideDone"])
+  document.getElementById(id).addEventListener("input", () => {
+    state._q = document.getElementById("q").value;
+    state._sort = document.getElementById("sort").value;
+    state._sort2 = document.getElementById("sort2").value;
+    state._hide = document.getElementById("hideDone").checked ? 1 : 0;
+    save();
+    render();
+  });
+
+// Sortiermodus-Steuerung (Noppen, Vergilbt-Filter, Charge)
+document.getElementById("studsSel").value = state._studs || "";
+document.getElementById("noYellow").checked = !!state._noYellow;
+for (const id of ["studsSel", "noYellow"])
+  document.getElementById(id).addEventListener("input", () => {
+    state._studs = document.getElementById("studsSel").value;
+    state._noYellow = document.getElementById("noYellow").checked ? 1 : 0;
+    save(); render();
+  });
+const batchEl = document.getElementById("batch");
+const renderBatch = () => {
+  const b = batchSets();
+  batchEl.innerHTML = DATA.filter(s => SORT_SETS.includes(s.nr)).map(s =>
+    `<label><input type="checkbox" data-nr="${s.nr}"${b.includes(s.nr) ? " checked" : ""}> ${s.nr}</label>`).join("");
+};
+batchEl.addEventListener("input", () => {
+  state._batch = [...batchEl.querySelectorAll("input:checked")].map(i => i.dataset.nr);
+  save(); render();
+});
+document.getElementById("batchAll").onclick = e => { e.target.blur(); state._batch = null; renderBatch(); save(); render(); };
+document.getElementById("batchNone").onclick = e => { e.target.blur(); state._batch = []; renderBatch(); save(); render(); };
+renderBatch();
+const restTxt = document.getElementById("restTxt");
+document.getElementById("restAdd").onclick = e => { e.target.blur(); addRest(restTxt.value, 1); restTxt.value = ""; };
+restTxt.addEventListener("keydown", e => {
+  if (e.key === "Enter") { addRest(restTxt.value, 1); restTxt.value = ""; }
+  e.stopPropagation();
+});
+
+// Dunkelmodus
+const applyDark = () => document.body.classList.toggle("dark",
+  state._dark !== undefined ? !!state._dark : matchMedia("(prefers-color-scheme: dark)").matches);
+document.getElementById("darkBtn").onclick = () => {
+  state._dark = document.body.classList.contains("dark") ? 0 : 1;
+  save();
+  applyDark();
+};
+applyDark();
+
+// Header-Höhe für Sticky-Offsets messen
+const setHeadH = () => document.documentElement.style.setProperty(
+  "--headh", document.querySelector("header").offsetHeight + "px");
+window.addEventListener("resize", setHeadH);
+
+// Bildgrößen-Regler (wird mitgespeichert)
+const imgSize = document.getElementById("imgSize");
+const applyImgSize = () =>
+  document.documentElement.style.setProperty("--imgh", imgSize.value + "px");
+imgSize.value = state._imgh || 34;
+imgSize.addEventListener("input", () => { state._imgh = +imgSize.value; applyImgSize(); save(); });
+applyImgSize();
+
+// Hover-Zoom auf Teilebilder
+const zoom = document.getElementById("zoom"), zoomImg = zoom.querySelector("img");
+const main = document.getElementById("main");
+let zoomTimer = null;
+main.addEventListener("mouseover", e => {
+  const img = e.target.closest("td.img img"), sb = e.target.closest("button.setbtn");
+  if (!img && !sb) return;
+  const src = img ? img.src : `bilder/${sb.dataset.k.split("|")[0]}.jpg`;
+  clearTimeout(zoomTimer);
+  zoomTimer = setTimeout(() => { zoomImg.src = src; zoom.style.display = "block"; placeZoom(); }, 180);
+});
+let mx = 0, my = 0;
+function placeZoom() {
+  let x = mx + 20, y = my + 16;
+  if (x + zoom.offsetWidth > innerWidth - 8) x = mx - zoom.offsetWidth - 20;
+  if (y + zoom.offsetHeight > innerHeight - 8) y = my - zoom.offsetHeight - 16;
+  zoom.style.left = x + "px"; zoom.style.top = y + "px";
+}
+main.addEventListener("mousemove", e => {
+  mx = e.clientX; my = e.clientY;
+  if (zoom.style.display === "block") placeZoom();
+});
+main.addEventListener("mouseout", e => {
+  if (e.target.closest("td.img, button.setbtn")) { clearTimeout(zoomTimer); zoom.style.display = "none"; }
+});
+main.addEventListener("click", () => zoom.style.display = "none");
+
+function download(name, text, type) {
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(new Blob([text], { type }));
+  a.download = name; a.click();
+}
+
+document.getElementById("undoBtn").onclick = undo;
+
+// Nur Sets mit erfasstem Fortschritt in Exporte aufnehmen
+const touched = s => items(s).some(p =>
+  ist(key(s.nr, p)) > 0 || defs(key(s.nr, p)) > 0);
+
+document.getElementById("expMiss").onclick = () => {
+  const lines = ["set;part_num;name;color;soll;ist;defekt;fehlt"];
+  for (const s of DATA.filter(touched))
+    for (const p of items(s).filter(p => !p.sp)) {
+      const k = key(s.nr, p), v = Math.min(ist(k), p.q), m = missOf(s.nr, p);
+      if (m > 0)
+        lines.push([s.nr, p.p || p.id, `"${p.n}"`, p.c, p.q, v,
+                    Math.min(defs(k), v), m].join(";"));
+    }
+  download("fehlteile.csv", "\ufeff" + lines.join("\n"), "text/csv");
+};
+
+document.getElementById("expOver").onclick = () => {
+  const lines = ["set;part_num;name;color;ueberschuss;auch_in"];
+  for (const s of DATA.filter(touched))
+    for (const p of s.parts.filter(p => !p.sp)) {
+      const v = ist(key(s.nr, p));
+      if (v > p.q) {
+        const o = (XREF[p.p + "|" + p.c] || []).filter(x => x[0] !== s.nr);
+        lines.push([s.nr, p.p, `"${p.n}"`, p.c, v - p.q,
+                    `"${o.map(x => `${x[0]} (${x[1]}x)`).join(", ")}"`].join(";"));
+      }
+    }
+  download("ueberschuss.csv", "\ufeff" + lines.join("\n"), "text/csv");
+};
+
+document.getElementById("expRest").onclick = () => {
+  const lines = ["beschreibung;anzahl"];
+  for (const [t, n] of Object.entries(state._rest || {}).sort())
+    lines.push(`"${t.replace(/"/g, '""')}";${n}`);
+  download("fremdbestand.csv", "﻿" + lines.join("\n"), "text/csv");
+};
+
+document.getElementById("expXml").onclick = () => {
+  const agg = {}, unmapped = [];
+  for (const s of DATA.filter(touched))
+    for (const p of s.parts.filter(p => !p.sp)) {
+      const m = missOf(s.nr, p);
+      if (!m) continue;
+      if (p.blc == null) { unmapped.push(`${p.p} ${p.c}`); continue; }
+      const id = (p.bl || p.p) + "|" + p.blc;
+      agg[id] = (agg[id] || 0) + m;
+    }
+  const xml = "<INVENTORY>" + Object.entries(agg).map(([id, q]) => {
+    const [pn, c] = id.split("|");
+    return `<ITEM><ITEMTYPE>P</ITEMTYPE><ITEMID>${pn}</ITEMID>` +
+           `<COLOR>${c}</COLOR><MINQTY>${q}</MINQTY><CONDITION>U</CONDITION></ITEM>`;
+  }).join("") + "</INVENTORY>";
+  download("bricklink-wanted.xml", xml, "text/xml");
+  let msg = "Hinweis: Minifigs sind im XML nicht enthalten (\u00fcber BrickLink einzeln suchen).";
+  if (unmapped.length) msg += "\nOhne BrickLink-Farbzuordnung \u00fcbersprungen:\n" + unmapped.join("\n");
+  alert(msg);
+};
+
+document.getElementById("expState").onclick = () =>
+  download("inventur-fortschritt.json", JSON.stringify(state), "application/json");
+document.getElementById("impState").onclick = () => document.getElementById("impFile").click();
+document.getElementById("impFile").onchange = e => {
+  const f = e.target.files[0];
+  if (!f) return;
+  // Zusammenf\u00fchren: je Position das Maximum (f\u00fcr 2 Personen an 2 Ger\u00e4ten)
+  f.text().then(t => {
+    const imp = JSON.parse(t);
+    for (const [k, v] of Object.entries(imp)) {
+      if (k.startsWith("_") || typeof v !== "number") continue;
+      state[k] = Math.max(state[k] || 0, v);
+    }
+    if (imp._rest) {
+      state._rest = state._rest || {};
+      for (const [t2, n] of Object.entries(imp._rest))
+        state._rest[t2] = Math.max(state._rest[t2] || 0, n);
+    }
+    save(); markTab(); render();
+  });
+};
+
+// ---- Auto-Backup in JSON-Datei (File System Access API, Chrome/Edge) ----
+let fileHandle = null, backupTimer = null;
+const asBtn = document.getElementById("autosave");
+
+function idb() {
+  return new Promise((res, rej) => {
+    const r = indexedDB.open("lego-inventur-6286-6592", 1);
+    r.onupgradeneeded = () => r.result.createObjectStore("kv");
+    r.onsuccess = () => res(r.result);
+    r.onerror = () => rej(r.error);
+  });
+}
+async function idbSet(k, v) {
+  const db = await idb();
+  return new Promise((res, rej) => {
+    const tx = db.transaction("kv", "readwrite");
+    tx.objectStore("kv").put(v, k);
+    tx.oncomplete = res;
+    tx.onerror = () => rej(tx.error);
+  });
+}
+async function idbGet(k) {
+  const db = await idb();
+  return new Promise((res, rej) => {
+    const rq = db.transaction("kv").objectStore("kv").get(k);
+    rq.onsuccess = () => res(rq.result);
+    rq.onerror = () => rej(rq.error);
+  });
+}
+
+function markBackup(st) {
+  asBtn.classList.remove("on", "warn");
+  if (st === "on") { asBtn.textContent = "Auto-Backup ✓"; asBtn.classList.add("on"); }
+  else if (st === "reconnect") { asBtn.textContent = "Auto-Backup verbinden"; asBtn.classList.add("warn"); }
+  else asBtn.textContent = "Auto-Backup aus";
+}
+async function writeBackup() {
+  if (!fileHandle) return;
+  try {
+    const w = await fileHandle.createWritable();
+    await w.write(JSON.stringify(state));
+    await w.close();
+  } catch (e) { fileHandle = null; markBackup("reconnect"); }
+}
+function scheduleBackup() {
+  if (!fileHandle) return;
+  clearTimeout(backupTimer);
+  backupTimer = setTimeout(writeBackup, 800);
+}
+async function connectBackup() {
+  try {
+    let h = await idbGet("handle");
+    if (h && (await h.requestPermission({ mode: "readwrite" })) === "granted") {
+      fileHandle = h;
+    } else {
+      h = await showSaveFilePicker({
+        suggestedName: "inventur-fortschritt.json",
+        types: [{ description: "JSON", accept: { "application/json": [".json"] } }],
+      });
+      fileHandle = h;
+      await idbSet("handle", h);
+    }
+    markBackup("on");
+    writeBackup();
+    document.getElementById("bkmodal").classList.remove("open");
+    return true;
+  } catch (e) {
+    if (e.name !== "AbortError")
+      alert("Auto-Backup hier nicht möglich (" + e.name + ") — bitte Chrome/Edge nutzen. " +
+            "Manuelles Sichern funktioniert weiterhin.");
+    return false;
+  }
+}
+asBtn.onclick = async () => {
+  if (fileHandle) {  // ausschalten
+    fileHandle = null;
+    await idbSet("handle", null);
+    markBackup("off");
+    return;
+  }
+  connectBackup();
+};
+
+// Backup beim Öffnen erzwingen: Dialog bis verbunden (oder bewusst übersprungen)
+document.getElementById("bkconnect").onclick = connectBackup;
+document.getElementById("bklater").onclick = () =>
+  document.getElementById("bkmodal").classList.remove("open");
+(async () => {
+  if (!window.showSaveFilePicker) { asBtn.style.display = "none"; return; }
+  try {
+    if (await idbGet("handle")) markBackup("reconnect");
+  } catch (e) {}
+  document.getElementById("bkmodal").classList.add("open");
+})();
+
+// Letzte Sicherung: Warnung beim Schließen, wenn Fortschritt ohne Datei-Backup existiert
+window.addEventListener("beforeunload", e => {
+  const hasProgress = Object.keys(state).some(k => !k.startsWith("_")) ||
+                      Object.keys(state._rest || {}).length > 0;
+  if (hasProgress && !fileHandle) { e.preventDefault(); e.returnValue = ""; }
+});
+
+// Set aus URL-Hash übernehmen (Deep-Link aus sets.html)
+const hashNr = location.hash.slice(1);
+if (DATA.some(s => s.nr === hashNr)) cur = hashNr;
+if (hashNr === "sort") cur = SORT;
+if (cur !== SORT && !DATA.some(s => s.nr === cur)) cur = DATA[0].nr;
+
+markTab(); render(); setHeadH();
+</script>
+</body>
+</html>
